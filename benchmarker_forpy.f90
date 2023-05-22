@@ -4,11 +4,12 @@ use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
                                           stdout=>output_unit, &
                                           stderr=>error_unit
 use cg_drag_forpy_mod, only: cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
+implicit none
 
 integer :: ie, ntimes, i, j, k, ii, jj, kk
 character(len=10) :: ntimes_char
 character(len=1024) :: model_dir, model_name
-real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv
+real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
 real(kind=8) :: val
 real(kind=8), dimension(:,:), allocatable :: lat, psfc
 integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
@@ -30,6 +31,8 @@ write(*,*) 'Will run ', trim(model_dir),' ', ntimes, ' times'
 
 allocate(uuu(I_MAX, J_MAX, K_MAX))
 allocate(vvv(I_MAX, J_MAX, K_MAX))
+allocate(gwfcng_x(I_MAX, J_MAX, K_MAX))
+allocate(gwfcng_y(I_MAX, J_MAX, K_MAX))
 allocate(lat(I_MAX, J_MAX))
 allocate(psfc(I_MAX, J_MAX))
 ! Read in saved input (and output) values
@@ -54,6 +57,9 @@ call cg_drag_ML_init(model_dir, model_name)
 ! Start timing
 
 ! Run inference N many times (check output)
+call cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
+
+write(*,*) gwfcng_x
 
 ! Stop timing, output results
 end program benchmarker

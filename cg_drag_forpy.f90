@@ -166,10 +166,10 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !-----------------------------------------------------------------
   
-  real, dimension(:,:,:), intent(in)    :: uuu, vvv
-  real, dimension(:,:),   intent(in)    :: lat, psfc
+  real(kind=8), dimension(:,:,:), intent(in)    :: uuu, vvv
+  real(kind=8), dimension(:,:),   intent(in)    :: lat, psfc
   
-  real, dimension(:,:,:), intent(out)   :: gwfcng_x, gwfcng_y
+  real(kind=8), dimension(:,:,:), intent(out)   :: gwfcng_x, gwfcng_y
   
   !-----------------------------------------------------------------
 
@@ -180,9 +180,9 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !---------------------------------------------------------------------
 
-  real, dimension(:,:), allocatable, asynchronous  :: uuu_flattened, vvv_flattened
-  real, dimension(:,:), allocatable, asynchronous    :: lat_reshaped, psfc_reshaped
-  real, dimension(:,:), allocatable, asynchronous  :: gwfcng_x_flattened, gwfcng_y_flattened
+  real(kind=8), dimension(:,:), allocatable, asynchronous  :: uuu_flattened, vvv_flattened
+  real(kind=8), dimension(:,:), allocatable, asynchronous    :: lat_reshaped, psfc_reshaped
+  real(kind=8), dimension(:,:), allocatable, asynchronous  :: gwfcng_x_flattened, gwfcng_y_flattened
 
   integer :: imax, jmax, kmax, j
 
