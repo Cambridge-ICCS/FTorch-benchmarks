@@ -3,9 +3,11 @@ use forpy_mod
 use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
                                           stdout=>output_unit, &
                                           stderr=>error_unit
+use cg_drag_forpy_mod, only: cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
 
 integer :: ie, ntimes, i, j, k, ii, jj, kk
 character(len=10) :: ntimes_char
+character(len=1024) :: model_dir, model_name
 real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv
 real(kind=8) :: val
 real(kind=8), dimension(:,:), allocatable :: lat, psfc
@@ -14,13 +16,17 @@ integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
 ie = forpy_initialize()
 
 ! Parse argument for N
-if (command_argument_count() .ne. 1) then
-    write(stderr, *)'Must provide argument N, number of times to run inference'
+if (command_argument_count() .ne. 3) then
+    write(stderr, *)'Usage: benchmarker <model-dir> <model-name> <N>'
+    write(stderr, *)'       Run model named <model-name> in <model-dir> N'
+    write(stderr, *)'       times with forpy'
     stop
 endif
-call get_command_argument(1, ntimes_char)
+call get_command_argument(1, model_dir)
+call get_command_argument(2, model_name)
+call get_command_argument(3, ntimes_char)
 read(ntimes_char, *) ntimes
-write(*,*) 'Will run inference ', ntimes, ' times'
+write(*,*) 'Will run ', trim(model_dir),' ', ntimes, ' times'
 
 allocate(uuu(I_MAX, J_MAX, K_MAX))
 allocate(vvv(I_MAX, J_MAX, K_MAX))
@@ -42,7 +48,8 @@ do i = 1, I_MAX
     end do
 end do
 
-! Initialise the PyTorch model
+! Initialise the model
+call cg_drag_ML_init(model_dir, model_name)
 
 ! Start timing
 
