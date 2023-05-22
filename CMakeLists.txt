@@ -16,6 +16,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(forpy)
 
-add_executable(benchmarker benchmarker.f90)
-target_sources(benchmarker PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90)
-target_link_libraries(benchmarker PRIVATE Python::Python)
+add_executable(benchmarker_forpy benchmarker_forpy.f90)
+target_sources(benchmarker_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90)
+target_link_libraries(benchmarker_forpy PRIVATE Python::Python)
