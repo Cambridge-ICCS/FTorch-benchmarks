@@ -1,5 +1,68 @@
 cmake_minimum_required(VERSION 3.14)
+
 project(fortran-pytorch-lib-benchmark Fortran)
+
+# Set a custom build type called Profile that is based on RelWithDebInfo
+# and populate it with flags to use instrumented profiling (gprof).
+# Also check that build type is set, is one of the permitted types,
+# and set it to Debug if it's not set.
+
+# Oh CMake.  Somehow these never-before-seen variables are getting set to
+# an empty string so this set(...CACHE) doesn't do anything.
+if(NOT CMAKE_Fortran_FLAGS_PROFILE)
+set(CMAKE_Fortran_FLAGS_PROFILE
+    "${CMAKE_Fortran_FLAGS_RELWITHDEBINFO} -pg -fno-omit-frame-pointer"
+    CACHE STRING "" FORCE
+)
+endif()
+if(NOT CMAKE_EXE_LINKER_FLAGS_PROFILE)
+set(CMAKE_EXE_LINKER_FLAGS_PROFILE
+    "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} -pg"
+    CACHE STRING "" FORCE
+)
+endif()
+if(NOT CMAKE_SHARED_LINKER_FLAGS_PROFILE)
+set(CMAKE_SHARED_LINKER_FLAGS_PROFILE
+    "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO} -pg"
+    CACHE STRING "" FORCE
+)
+endif()
+if(NOT CMAKE_STATIC_LINKER_FLAGS_PROFILE)
+set(CMAKE_STATIC_LINKER_FLAGS_PROFILE
+    "${CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO}"
+    CACHE STRING "" FORCE
+)
+endif()
+if(NOT CMAKE_MODULE_LINKER_FLAGS_PROFILE)
+set(CMAKE_MODULE_LINKER_FLAGS_PROFILE
+    "${CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO} -pg"
+    CACHE STRING "" FORCE
+)
+endif()
+
+get_property(isMultiConfig GLOBAL
+	PROPERTY GENERATOR_IS_MULTI_CONFIG
+)
+if(isMultiConfig)
+	if(NOT "Profile" IN_LIST CMAKE_CONFIGURATION_TYPES)
+	list(APPEND CMAKE_CONFIGURATION_TYPES Profile)
+	endif()
+else()
+	set(allowedBuildTypes Debug Release RelWithDebInfo Profile)
+	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY
+		STRINGS "${allowedBuildTypes}"
+	)
+	if(NOT CMAKE_BUILD_TYPE)
+		set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
+	elseif(NOT CMAKE_BUILD_TYPE IN_LIST allowedBuildTypes)
+		message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+	endif()
+endif()
+
+message(STATUS "CMAKE_Fortran_FLAGS_PROFILE ${CMAKE_Fortran_FLAGS_PROFILE}")
+message(STATUS "CMAKE_Fortran_FLAGS_RELWITHDEBINFO ${CMAKE_Fortran_FLAGS_RELWITHDEBINFO}")
+message(STATUS "CMAKE_Fortran_FLAGS_DEBUG ${CMAKE_Fortran_FLAGS_DEBUG}")
+message(STATUS "CMAKE_Fortran_FLAGS_RELEASE ${CMAKE_Fortran_FLAGS_RELEASE}")
 
 #find_package(FTorch)
 
