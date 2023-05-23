@@ -23,6 +23,11 @@ or `-DCMAKE_Fortran_COMPILER=ifort` if you need.
 
 Then, run `make` and the program(s) should build.
 
+### Profiling build type
+There is now a custom build type for `cmake` you can set with
+`-DCMAKE_BUILD_TYPE=Profile`.  This will add the necessary options
+for instrumented profiling, in the `gprof` style.
+
 ## Running instructions
 You'll need the Python virtual environment loaded.  Run the program:
 ```
@@ -32,3 +37,13 @@ Where `<path-to-model-dir>` is the path to where the PyTorch model resides,
 `<python-module-to-load>` is the Python file to load.  It should export
 `initialize` and `compute_reshape_drag` methods.  See the Wavenet 2 model
 provided.  `<N>` is the number of times to run the inference.
+
+### Profiling using `-DCMAKE_BUILD_TYPE=Profile`
+Run `cmake` with the `-DCMAKE_BUILD_TYPE=Profile` option and make the code.
+Then, after you run it, a `gmon.out` file will be created in the current
+directory.  To process this file you must do:
+```
+gprof <path-to-benchmarker_forpy> <path-to-gmon.out>
+```
+By default this gets you the default flat profile followed by the call
+graph.  Check the other options to `gprof`.
