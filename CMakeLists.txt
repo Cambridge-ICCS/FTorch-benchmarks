@@ -59,14 +59,19 @@ else()
 	endif()
 endif()
 
-message(STATUS "CMAKE_Fortran_FLAGS_PROFILE ${CMAKE_Fortran_FLAGS_PROFILE}")
-message(STATUS "CMAKE_Fortran_FLAGS_RELWITHDEBINFO ${CMAKE_Fortran_FLAGS_RELWITHDEBINFO}")
-message(STATUS "CMAKE_Fortran_FLAGS_DEBUG ${CMAKE_Fortran_FLAGS_DEBUG}")
-message(STATUS "CMAKE_Fortran_FLAGS_RELEASE ${CMAKE_Fortran_FLAGS_RELEASE}")
+# Benchmarking Torch
+find_package(FTorch)
+message(STATUS "Building with the Fortran PyTorch coupling")
 
-#find_package(FTorch)
-
+add_executable(benchmarker_torch benchmarker_torch.f90)
+target_link_libraries(benchmarker_torch PRIVATE FTorch::ftorch )
+target_sources(benchmarker_torch PRIVATE cg_drag_torch.f90)
+# Make sure python present
 find_package(Python REQUIRED COMPONENTS Development)
+
+
+# Benchmarking Forpy
+# Get forpy module from github
 include(FetchContent)
 FetchContent_Declare(
     forpy
@@ -76,8 +81,8 @@ FetchContent_Declare(
     GIT_PROGRESS   ON
     # UPDATE_DISCONNECTED   ON
 )
-
 FetchContent_MakeAvailable(forpy)
+message(STATUS "Building with the Fortran Forpy coupling")
 
 add_executable(benchmarker_forpy benchmarker_forpy.f90)
 target_sources(benchmarker_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90)
