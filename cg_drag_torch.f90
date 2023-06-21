@@ -130,8 +130,9 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !-----------------------------------------------------------------
   
-  real(kind=8), dimension(:,:,:), intent(in)    :: uuu, vvv
-  real(kind=8), dimension(:,:),   intent(in)    :: lat, psfc
+  real(kind=8), dimension(:,:,:), target, intent(in)    :: uuu, vvv
+  real(kind=8), dimension(:,:), target,   intent(in)    :: psfc
+  real(kind=8), dimension(:,:), target                  :: lat
   
   real(kind=8), dimension(:,:,:), intent(out), target   :: gwfcng_x, gwfcng_y
   
@@ -144,18 +145,17 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !---------------------------------------------------------------------
 
-  real(kind=8), dimension(:,:), allocatable, target  :: uuu_reshaped, vvv_reshaped
-  real(kind=8), dimension(:,:), allocatable, target    :: lat_reshaped, psfc_reshaped
-  real(kind=8), dimension(:,:), allocatable, target  :: gwfcng_x_reshaped, gwfcng_y_reshaped
-
   integer :: imax, jmax, kmax, j, k
 
   integer(c_int), parameter :: dims_2D = 2
   integer(c_int64_t) :: shape_2D(dims_2D)
+  integer(c_int) :: stride_2D(dims_2D)
   integer(c_int), parameter :: dims_1D = 2
   integer(c_int64_t) :: shape_1D(dims_1D)
+  integer(c_int) :: stride_1D(dims_1D)
   integer(c_int), parameter :: dims_out = 2
   integer(c_int64_t) :: shape_out(dims_out)
+  integer(c_int) :: stride_out(dims_out)
 
   ! Set up types of input and output data and the interface with C
   type(torch_tensor) :: gwfcng_x_tensor, gwfcng_y_tensor
@@ -169,52 +169,33 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   jmax = size(uuu, 2)
   kmax = size(uuu, 3)
 
+  ! pseudo-flatten data (nlat, nlon, n) --> (nlat*nlon, n)
   ! Note that the '1D' tensor has 2 dimensions, one of which is size 1
   shape_2D = (/ imax*jmax, kmax /)
   shape_1D = (/ imax*jmax, 1 /)
   shape_out = (/ imax*jmax, kmax /)
 
-  ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
-  allocate( uuu_reshaped(kmax, imax*jmax) )
-  allocate( vvv_reshaped(kmax, imax*jmax) )
-  allocate( lat_reshaped(1, imax*jmax) )
-  allocate( psfc_reshaped(1, imax*jmax) )
-  allocate( gwfcng_x_reshaped(kmax, imax*jmax) )
-  allocate( gwfcng_y_reshaped(kmax, imax*jmax) )
+  stride_1D = (/ 1, 2 /)
+  stride_2D =  (/ 1, 2 /)
+  stride_out =  (/ 1, 2 /)
 
-  do j=1,jmax
-      do k=1, kmax
-          uuu_reshaped(k, (j-1)*imax+1:j*imax) = uuu(:,j,k)
-          vvv_reshaped(k, (j-1)*imax+1:j*imax) = vvv(:,j,k)
-      end do
-      lat_reshaped(1, (j-1)*imax+1:j*imax) = lat(:,j)*RADIAN
-      psfc_reshaped(1, (j-1)*imax+1:j*imax) = psfc(:,j)
-  end do
+  lat = lat*RADIAN
 
   ! Create input/output tensors from the above arrays
-  model_input_arr(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU)
-  model_input_arr(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU)
+  model_input_arr(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
+  model_input_arr(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
   
   ! Zonal
-  model_input_arr(1) = torch_tensor_from_blob(c_loc(uuu_reshaped), dims_2D, shape_2D, torch_kFloat64, torch_kCPU)
-  gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x_reshaped), dims_out, shape_out, torch_kFloat64, torch_kCPU)
+  model_input_arr(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
+  gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
   ! Run model and Infer
   call torch_module_forward(model, model_input_arr, n_inputs, gwfcng_x_tensor)
   
   ! Meridional
-  model_input_arr(1) = torch_tensor_from_blob(c_loc(vvv_reshaped), dims_2D, shape_2D, torch_kFloat64, torch_kCPU)
-  gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y_reshaped), dims_out, shape_out, torch_kFloat64, torch_kCPU)
+  model_input_arr(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
+  gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
   ! Run model and Infer
   call torch_module_forward(model, model_input_arr, n_inputs, gwfcng_y_tensor)
-
-
-  ! Convert back into fortran types, reshape, and assign to gwfcng
-  do j=1,jmax
-      do k=1, kmax
-          gwfcng_x(:,j,k) = gwfcng_x_reshaped(k, (j-1)*imax+1:j*imax)
-          gwfcng_y(:,j,k) = gwfcng_y_reshaped(k, (j-1)*imax+1:j*imax)
-      end do
-  end do
 
   ! Cleanup
   call torch_tensor_delete(model_input_arr(1))
@@ -222,13 +203,8 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   call torch_tensor_delete(model_input_arr(3))
   call torch_tensor_delete(gwfcng_x_tensor)
   call torch_tensor_delete(gwfcng_y_tensor)
-  deallocate( uuu_reshaped )
-  deallocate( vvv_reshaped )
-  deallocate( lat_reshaped )
-  deallocate( psfc_reshaped )
-  deallocate( gwfcng_x_reshaped )
-  deallocate( gwfcng_y_reshaped )
 
+  ! write(*,*) gwfcng_y(1:5, 1:5, 1)
 
 end subroutine cg_drag_ML
 

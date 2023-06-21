@@ -270,6 +270,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   deallocate( gwfcng_x_flattened )
   deallocate( gwfcng_y_flattened )
 
+  ! write(*,*) gwfcng_y(1:5, 1:5, 1)
 
 end subroutine cg_drag_ML
 
