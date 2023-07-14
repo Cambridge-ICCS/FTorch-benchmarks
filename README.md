@@ -6,18 +6,26 @@ moderate _slowdown_ when using our Fortran to PyTorch direct coupling library.
 This repository contains code to investigate that surprising result.
 
 ## Requirements
-You will need:
+It is recommended to use Linux for this. Follow the build instructions below to set up the following requirements:
+
+0) [Fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository.
 1) CMake >= 3.14
 2) Python
 3) a virtual environment with PyTorch and NumPy installed
 
 ## Build instructions
-Create a build directory and run `cmake` in the usual way:
+Get the [fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository if you haven't already got it. Follow the installation instructions on the ReadMe of that repository. 
+
+In your fortran-pytorch-lib-benchmark repository, create a build directory and run `cmake` as follows, noting the cmake options below:
 ```
 mkdir build
 cd build
 cmake ..
 ```
+You may need to specify the path to PyTorch with the option `-DCMAKE_PREFIX-PATH=<full-path-to-PyTorch>`. 
+
+You may also need to specify the path to the CMake library files by using the option `-DFTorch_DIR=<full-path-to-cmake-lib-files>/lib/cmake/`. This is the location you specified when installing fortran-pytorch-lib, if you used `-DCMAKE_INSTALL_PREFIX`. The default location is /usr/local. 
+
 You can specify `cmake` options like `-DCMAKE_BUILD_TYPE=RelWithDebInfo`
 or `-DCMAKE_Fortran_COMPILER=ifort` if you need.
 
