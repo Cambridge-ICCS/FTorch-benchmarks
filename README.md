@@ -7,11 +7,14 @@ This repository contains code to investigate that surprising result.
 
 ## Requirements
 Follow the build instructions below to set up the following requirements:
+0) [Fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository.
 1) CMake >= 3.14
 2) Python
 3) a virtual environment with PyTorch and NumPy installed
 
 ## Build instructions
+Get the [Fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository if you haven't already got it.
+
 Create a build directory and run `cmake` in the usual way:
 ```
 mkdir build
