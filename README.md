@@ -8,6 +8,7 @@ This repository contains code to investigate that surprising result.
 ## Requirements
 It is recommended to use Linux for this. Follow the build instructions below to set up the following requirements:
 
+
 0) [Fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository.
 1) CMake >= 3.14
 2) Python
@@ -17,6 +18,7 @@ It is recommended to use Linux for this. Follow the build instructions below to 
 Get the [fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository if you haven't already got it. Follow the installation instructions on the ReadMe of that repository. 
 
 In your fortran-pytorch-lib-benchmark repository, create a build directory and run `cmake` as follows, noting the cmake options below:
+
 ```
 mkdir build
 cd build
