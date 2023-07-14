@@ -10,6 +10,7 @@ character(len=10) :: ntimes_char
 character(len=1024) :: model_dir, model_name
 real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
 real(kind=8) :: val
+real :: start_time, end_time
 real(kind=8), dimension(:,:), allocatable :: lat, psfc
 integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
 
@@ -52,6 +53,7 @@ end do
 call cg_drag_ML_init(model_dir, model_name)
 
 ! Start timing
+call cpu_time(start_time)
 
 ! Run inference N many times (check output)
 do iter = 1, ntimes
@@ -59,6 +61,8 @@ do iter = 1, ntimes
 end do
 
 ! Stop timing, output results
+call cpu_time(end_time)
+write(*,*)'Time taken: ', end_time-start_time
 
 ! Clean up
 call cg_drag_ML_end
