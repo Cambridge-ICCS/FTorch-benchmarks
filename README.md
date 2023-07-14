@@ -6,7 +6,7 @@ moderate _slowdown_ when using our Fortran to PyTorch direct coupling library.
 This repository contains code to investigate that surprising result.
 
 ## Requirements
-You will need:
+Follow the build instructions below to set up the following requirements:
 1) CMake >= 3.14
 2) Python
 3) a virtual environment with PyTorch and NumPy installed
