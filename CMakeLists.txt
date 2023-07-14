@@ -66,6 +66,11 @@ message(STATUS "Building with the Fortran PyTorch coupling")
 add_executable(benchmarker_torch benchmarker_torch.f90)
 target_link_libraries(benchmarker_torch PRIVATE FTorch::ftorch )
 target_sources(benchmarker_torch PRIVATE cg_drag_torch.f90)
+
+# Large stride test
+add_executable(benchmarker_large_stride_torch benchmarker_large_stride_torch.f90)
+target_link_libraries(benchmarker_large_stride_torch PRIVATE FTorch::ftorch )
+
 # Make sure python present
 find_package(Python REQUIRED COMPONENTS Development)
 

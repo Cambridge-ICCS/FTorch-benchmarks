@@ -6,13 +6,17 @@ moderate _slowdown_ when using our Fortran to PyTorch direct coupling library.
 This repository contains code to investigate that surprising result.
 
 ## Requirements
-You will need:
+Follow the build instructions below to set up the following requirements:
+
+0) [Fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository.
 1) CMake >= 3.14
 2) Python
 3) a virtual environment with PyTorch and NumPy installed
 
 ## Build instructions
-Create a build directory and run `cmake` in the usual way:
+Get the [fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository if you haven't already got it.
+
+In your fortran-pytorch-lib-benchmark repository, create a build directory and run `cmake` in the following way:
 ```
 mkdir build
 cd build
