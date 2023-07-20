@@ -4,8 +4,22 @@ Contains all python commands to run StrideNet from Forpy.
 It needs in the same directory as `arch_StrideNet.py` which describes the
 model architecture.
 """
-from torch import load, device, no_grad, reshape, zeros, tensor, float64
+from torch import load, device, no_grad, reshape, zeros, tensor, float64, jit, from_numpy
+
 import arch_stride as m
+
+
+# Initialize everything
+def initialize_ts(*args):
+    """
+    Initialize a StrideNet model from torchscript.
+
+    """
+
+    filename, = args
+    model = jit.load(filename)
+
+    return model
 
 
 # Initialize everything
@@ -43,13 +57,17 @@ def compute(*args):
     Y_out :
         Results to be returned to MiMA
     """
-    model, BigTensor = args
+    model, BigTensor, Y_out = args
+
+    BigTensor = from_numpy(BigTensor)
 
     # Apply model.
     with no_grad():
         # Ensure evaluation mode (leave training mode and stop using current batch stats)
         # model.eval()  # Set during initialisation
         assert model.training is False
-        Y = model(BigTensor)
+        temp = model(BigTensor)
 
-    return Y
+    Y_out[:, :] = temp
+
+    return Y_out

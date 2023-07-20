@@ -7,7 +7,10 @@ IMAX = 128
 JMAX = 128
 
 BigTensor = np.ones((IMAX, JMAX))
+Y_out = np.zeros((IMAX, JMAX))
 
 # Initialise and run the model
 model = res.initialize()
-Y_out = res.compute(model, BigTensor)
+_ = res.compute(model, BigTensor, Y_out)
+
+print("Y_out = \n", Y_out)
