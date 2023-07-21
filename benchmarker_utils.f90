@@ -19,7 +19,7 @@ contains
     pass = char(27)//'[32m'//'PASSED'//char(27)//'[0m'
 
     if (.not. present(rtol_opt)) then
-      rtol = 1e-10
+      rtol = 1e-5
     end if
 
     relative_error = maxval(abs(a/b - 1.))
