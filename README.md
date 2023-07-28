@@ -14,14 +14,19 @@ Follow the build instructions below to set up the following requirements:
 3) a virtual environment with PyTorch and NumPy installed
 
 ## Build instructions
-Get the [fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository if you haven't already got it.
+Get the [fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository if you haven't already got it. Follow the installation instructions on the ReadMe of that repository. 
 
-In your fortran-pytorch-lib-benchmark repository, create a build directory and run `cmake` in the following way:
+In your fortran-pytorch-lib-benchmark repository, create a build directory and run `cmake` as follows, noting the cmake options below:
+
 ```
 mkdir build
 cd build
 cmake ..
 ```
+You may need to specify the path to PyTorch with the option `-DCMAKE_PREFIX-PATH=<full-path-to-PyTorch>`. 
+
+You may also need to specify the path to the CMake library files by using the option `-DFTorch_DIR=<full-path-to-cmake-lib-files>/lib/cmake/`. This is the location you specified when installing fortran-pytorch-lib, if you used `-DCMAKE_INSTALL_PREFIX`. The default location is /usr/local. 
+
 You can specify `cmake` options like `-DCMAKE_BUILD_TYPE=RelWithDebInfo`
 or `-DCMAKE_Fortran_COMPILER=ifort` if you need.
 
@@ -94,7 +99,7 @@ pre-saved torchscript `.pth` file. If this is omitted then forpy will generate a
 ## Results
 
 The results for a 512 x 512 tensor are shown below. These tests were run on an `Intel(R) Core(TM) i5-6400` cpu `@ 2.70GHz`,
-using `gcc version 11.3.0 (Ubuntu 11.3.0-1ubuntu1~22.04.1)`.
+using `gcc version 11.3.0 (Ubuntu 11.3.0-1ubuntu1~22.04.1)` - built in `Debug` mode.
 
 For the synthetic test they appear to show that the forpy and directly-coupled approaches are essentially the same speed.
 
