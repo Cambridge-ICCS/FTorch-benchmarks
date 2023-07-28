@@ -8,10 +8,10 @@ This repository contains code to investigate that surprising result.
 ## Requirements
 Follow the build instructions below to set up the following requirements:
 
-0) [Fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository.
-1) CMake >= 3.14
-2) Python
-3) a virtual environment with PyTorch and NumPy installed
+1) [Fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository.
+2) CMake >= 3.14
+3) Python
+4) a virtual environment with PyTorch and NumPy installed
 
 ## Build instructions
 Get the [fortran-PyTorch-lib](https://github.com/Cambridge-ICCS/fortran-pytorch-lib) repository if you haven't already got it. Follow the installation instructions on the ReadMe of that repository. 
