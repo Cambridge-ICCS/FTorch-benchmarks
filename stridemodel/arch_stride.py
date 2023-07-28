@@ -41,4 +41,9 @@ class StrideNet(nn.Module):
         for i in range(tensor_shape[0]):
             for j in range(tensor_shape[1]):
                 Y[i, j] = 2.0 * BigTensor[i, j]
+
+        # negate first off-diagonal element
+        # (this is to deliberately break the symmetry of the operation)
+        Y[0, 1] = -1.0*Y[0, 1]
+
         return Y
