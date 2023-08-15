@@ -85,6 +85,11 @@ add_executable(benchmarker_resnet_torch benchmarker_resnet_torch.f90)
 target_link_libraries(benchmarker_resnet_torch PRIVATE FTorch::ftorch )
 target_sources(benchmarker_resnet_torch PRIVATE benchmarker_utils.f90)
 
+# cgdrag test
+add_executable(benchmarker_cgdrag_torch benchmarker_cgdrag_torch.f90)
+target_link_libraries(benchmarker_cgdrag_torch PRIVATE FTorch::ftorch )
+target_sources(benchmarker_cgdrag_torch PRIVATE benchmarker_utils.f90)
+
 # Make sure python present
 find_package(Python REQUIRED COMPONENTS Development)
 
@@ -103,6 +108,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(forpy)
 message(STATUS "Building with the Fortran Forpy coupling")
 
+add_executable(benchmarker_forpy benchmarker_forpy.f90)
+target_sources(benchmarker_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90)
+target_sources(benchmarker_forpy PRIVATE cg_drag_forpy.f90)
+target_link_libraries(benchmarker_forpy PRIVATE Python::Python)
+
+# Large stride test
 option(USETS "Use torchscript format for forpy test" OFF)
 add_executable(benchmarker_large_stride_forpy benchmarker_large_stride_forpy.f90)
 target_sources(benchmarker_large_stride_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils.f90)
@@ -112,6 +123,7 @@ if (USETS)
     target_compile_definitions(benchmarker_large_stride_forpy PUBLIC USETS)
 endif()
 
+# resnet test
 option(USETS "Use torchscript format for forpy test" OFF)
 add_executable(benchmarker_resnet_forpy benchmarker_resnet_forpy.f90)
 target_sources(benchmarker_resnet_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils.f90)
@@ -121,7 +133,12 @@ if (USETS)
     target_compile_definitions(benchmarker_resnet_forpy PUBLIC USETS)
 endif()
 
-add_executable(benchmarker_forpy benchmarker_forpy.f90)
-target_sources(benchmarker_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90)
-target_sources(benchmarker_forpy PRIVATE cg_drag_forpy.f90)
-target_link_libraries(benchmarker_forpy PRIVATE Python::Python)
+# cgdrag test
+option(USETS "Use torchscript format for forpy test" OFF)
+add_executable(benchmarker_cgdrag_forpy benchmarker_cgdrag_forpy.f90)
+target_sources(benchmarker_cgdrag_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils.f90)
+target_link_libraries(benchmarker_cgdrag_forpy PRIVATE Python::Python)
+
+if (USETS)
+    target_compile_definitions(benchmarker_cgdrag_forpy PUBLIC USETS)
+endif()

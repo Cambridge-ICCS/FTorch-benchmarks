@@ -254,6 +254,8 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
       gwfcng_y(:,j,:) = gwfcng_y_flattened((j-1)*imax+1:j*imax,:)
   end do
 
+  write (*,*) gwfcng_x(1, 1, 1:10)
+  write (*,*) gwfcng_y(1, 1, 1:10)
   ! Cleanup
   call uuu_nd%destroy
   call vvv_nd%destroy
