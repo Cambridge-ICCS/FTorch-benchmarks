@@ -19,9 +19,9 @@ program benchmark_cgdrag_test
   real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
   real(kind=8), dimension(:,:), allocatable :: lat, psfc
   
-  real(kind=8), dimension(:,:), allocatable, asynchronous  :: uuu_flattened, vvv_flattened
-  real(kind=8), dimension(:,:), allocatable, asynchronous    :: lat_reshaped, psfc_reshaped
-  real(kind=8), dimension(:,:), allocatable, asynchronous  :: gwfcng_x_flattened, gwfcng_y_flattened
+  real(kind=8), dimension(:,:), allocatable  :: uuu_flattened, vvv_flattened
+  real(kind=8), dimension(:,:), allocatable  :: lat_reshaped, psfc_reshaped
+  real(kind=8), dimension(:,:), allocatable  :: gwfcng_x_flattened, gwfcng_y_flattened
 
   integer :: ie
   type(module_py) :: run_emulator
@@ -107,9 +107,9 @@ program benchmark_cgdrag_test
       call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
   end if
 
+
   do i = 1, ntimes
 
-    call cpu_time(start_time)
 
     do j=1,J_MAX
         uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
@@ -118,6 +118,7 @@ program benchmark_cgdrag_test
         psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
     end do
 
+    ! write (*,*) gwfcng_x(1, 1, 1:10)
     ! creates numpy arrays
     ie = ndarray_create_nocopy(uuu_nd, uuu_flattened)
     ie = ndarray_create_nocopy(vvv_nd, vvv_flattened)
@@ -145,7 +146,10 @@ program benchmark_cgdrag_test
     ie = args%setitem(1, vvv_nd)
     ie = args%setitem(4, gwfcng_y_nd)
 
+    call cpu_time(start_time)
     ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
+    call cpu_time(end_time)
+
     if (ie .ne. 0) then
         call err_print
         call error_mesg(__FILE__, __LINE__, "inference call failed")
@@ -157,6 +161,7 @@ program benchmark_cgdrag_test
         gwfcng_y(:,j,:) = gwfcng_y_flattened((j-1)*I_MAX+1:j*I_MAX,:)
     end do
 
+
     ! Clean up.
     call uuu_nd%destroy
     call vvv_nd%destroy
@@ -166,16 +171,25 @@ program benchmark_cgdrag_test
     call psfc_nd%destroy
     call args%destroy
 
-    call cpu_time(end_time)
     durations(i) = end_time-start_time
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
     print *, trim(msg)
-    write (*,*) gwfcng_x(1, 1, 1:10)
-    write (*,*) gwfcng_y(1, 1, 1:10)
+    !write (*,*) gwfcng_x(1, 1, 1:10)
+    !write (*,*) gwfcng_y(1, 1, 1:10)
+    
     ! call assert_real_2d(in_data, out_data/2., test_name=msg)
   end do
 
+  open(10,file="forpy_reference_x.txt")
+  open(20,file="forpy_reference_y.txt")
+
+  write(10,*) gwfcng_x
+  write(20,*) gwfcng_y
+
+  close(10)
+  close(20)
+  
   call print_time_stats(durations)
 
   deallocate(uuu)

@@ -15,9 +15,12 @@ program benchmark_cgdrag_test
   real(kind=8), parameter :: RADIAN = 180.0 / PI
 
   real(kind=8), dimension(:,:,:), allocatable, target :: uuu, vvv, gwfcng_x, gwfcng_y
+  real(kind=8), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
   real(kind=8), dimension(:,:), allocatable, target :: lat, psfc
   integer(c_int), parameter :: n_inputs = 3
 
+  ! Shape is the shape of the tensor we want to go into the torch
+  ! Stride is the mapping between the underlying data and the array
   integer(c_int), parameter :: dims_2D = 2
   integer(c_int64_t) :: shape_2D(dims_2D) = [I_MAX*J_MAX, K_MAX]
   integer(c_int) :: stride_2D(dims_2D) = [1,2]
@@ -27,6 +30,9 @@ program benchmark_cgdrag_test
   integer(c_int), parameter :: dims_out = 2
   integer(c_int64_t) :: shape_out(dims_out) = [I_MAX*J_MAX, K_MAX]
   integer(c_int) :: stride_out(dims_out) = [1,2]
+  
+  real(kind=8), dimension(:,:), allocatable, target :: uuu_flattened, vvv_flattened
+  real(kind=8), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
 
   character(len=:), allocatable :: model_dir, model_name
   character(len=128) :: msg
@@ -69,25 +75,54 @@ program benchmark_cgdrag_test
 
   model = torch_module_load(model_dir//"/"//model_name//c_null_char)
 
+  ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
+  allocate( uuu_flattened(I_MAX*J_MAX, K_MAX) )
+  allocate( vvv_flattened(I_MAX*J_MAX, K_MAX) )
+  allocate( lat_reshaped(I_MAX*J_MAX, 1) )
+  allocate( psfc_reshaped(I_MAX*J_MAX, 1) )
+
+  allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
+  allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
+  
+  open(10,file="forpy_reference_x.txt")
+  open(20,file="forpy_reference_y.txt")
+
+  read(10,*) gwfcng_x_ref
+  read(20,*) gwfcng_y_ref
+  !write(*,*) "Reference read:"
+  !write (*,*) gwfcng_x_ref(1, 1, 1:10)
+
+  close(10)
+  close(20)
+  
   do i = 1, ntimes
 
-    call cpu_time(start_time)
+    do j=1,J_MAX
+        uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
+        vvv_flattened((j-1)*I_MAX+1:j*I_MAX,:) = vvv(:,j,:)
+        lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)
+        psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
+    end do
+
 
     ! Create input and output tensors for the model.
-    in_tensors(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
-    in_tensors(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
+    in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
+    in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
     
     ! Zonal
-    in_tensors(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
+    in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
     gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
     ! Run model and Infer
     call torch_module_forward(model, in_tensors, n_inputs, gwfcng_x_tensor)
     
     ! Meridional
-    in_tensors(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
+    in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
     gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
+
     ! Run model and Infer
+    call cpu_time(start_time)
     call torch_module_forward(model, in_tensors, n_inputs, gwfcng_y_tensor)
+    call cpu_time(end_time)
 
     ! Clean up.
     call torch_tensor_delete(gwfcng_y_tensor)
@@ -96,19 +131,33 @@ program benchmark_cgdrag_test
       call torch_tensor_delete(in_tensors(ii))
     end do
 
-    call cpu_time(end_time)
-
     durations(i) = end_time-start_time
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
     print *, trim(msg)
-    write (*,*) gwfcng_x(1, 1, 1:10)
-    write (*,*) gwfcng_y(1, 1, 1:10)
+    ! write (*,*) gwfcng_x(1, 1, 1:10)
+    !write (*,*) gwfcng_y(1, 1, 1:10)
     ! call assert_real_2d(big_array, big_result/2., test_name=msg)
+
+    ! Check error
+    if (maxval(abs((gwfcng_x - gwfcng_x_ref)/gwfcng_x_ref)) >= 1.0e-6) then
+      write(*,*) "AAARRGGHHHHH"
+      stop
+    endif
+    if (maxval(abs((gwfcng_y - gwfcng_y_ref)/gwfcng_y_ref)) >= 1.0e-6) then
+      write(*,*) "AAARRGGHHHHH"
+      stop
+    endif
+
   end do
 
   call print_time_stats(durations)
 
+  ! Check error innit
+  !write(*,*) "Before check Arr:"
+  !write (*,*) gwfcng_x(1, 1, 1:10)
+  !write(*,*) "Before check Ref:"
+  !write (*,*) gwfcng_x_ref(1, 1, 1:10)
 
   call torch_module_delete(model)
 
