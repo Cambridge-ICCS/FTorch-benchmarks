@@ -37,10 +37,26 @@ contains
     implicit none
 
     real, intent(in) :: durations(:)
+    integer :: i, n
+    real :: mean, var, stddev
 
-    write(*,*) "min  time taken (s): ", minval(durations)
-    write(*,*) "max  time taken (s): ", maxval(durations)
-    write(*,*) "mean time taken (s): ", sum(durations) / size(durations, 1)
+    ! skip the first element because this is always slower
+    n = size(durations(2:), 1)
+
+    mean = sum(durations(2:)) / n
+
+    var = 0.
+
+    do i = 2, n
+      var = var + ( (durations(i) - mean)**2 / (n - 1) ) ! (n - 1) here is for corrected sample standard deviation
+    end do
+
+    stddev = sqrt(var)
+
+    write(*,'(A,F10.4)') "min    time taken (s): ", minval(durations(2:))
+    write(*,'(A,F10.4)') "max    time taken (s): ", maxval(durations(2:))
+    write(*,'(A,F10.4)') "mean   time taken (s): ", mean
+    write(*,'(A,F10.4)') "stddev time taken (s): ", stddev
 
   end subroutine print_time_stats
 
