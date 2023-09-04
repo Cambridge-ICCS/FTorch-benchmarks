@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 nrun=1000
-NDIM=512
+NDIM=256
 
 for n in {1,4,8};
 do
