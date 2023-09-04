@@ -1,6 +1,7 @@
 program benchmark_resnet_test
 
   use, intrinsic :: iso_c_binding
+  use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert_real_2d, setup, print_time_stats
   use :: ftorch
 
@@ -8,7 +9,9 @@ program benchmark_resnet_test
 
   integer :: i, ii, n
   real :: start_time, end_time
+  double precision :: start_omp, end_omp
   real, allocatable :: durations(:)
+  double precision, allocatable :: durations_omp(:)
 
   real(c_float), dimension(:,:,:,:), allocatable, target :: in_data
   integer(c_int), parameter :: n_inputs = 1
@@ -36,14 +39,16 @@ program benchmark_resnet_test
   allocate(in_data(in_shape(1), in_shape(2), in_shape(3), in_shape(4)))
   allocate(out_data(out_shape(1), out_shape(2)))
   allocate(durations(ntimes))
+  allocate(durations_omp(ntimes))
 
-  model = torch_module_load(model_dir//"/"//model_name)
+  model = torch_module_load(model_dir//"/"//model_name//C_NULL_CHAR)
 
   do i = 1, ntimes
 
     ! Initialise data
     in_data = 1.0d0
 
+    start_omp = omp_get_wtime()
     call cpu_time(start_time)
 
     ! Create input and output tensors for the model.
@@ -59,16 +64,21 @@ program benchmark_resnet_test
     end do
 
     call cpu_time(end_time)
+    end_omp = omp_get_wtime()
 
     durations(i) = end_time-start_time
+    durations_omp(i) = end_omp-start_omp
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
     print *, trim(msg)
-    write (*,*) out_data(1, 1000)
+    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations_omp(i), " s) [omp]"
+    print *, trim(msg)
+    ! write (*,*) out_data(1, 1000)
     ! call assert_real_2d(big_array, big_result/2., test_name=msg)
   end do
 
   call print_time_stats(durations)
+  call print_time_stats(durations_omp)
 
 
   call torch_module_delete(model)
@@ -76,5 +86,6 @@ program benchmark_resnet_test
   deallocate(in_data)
   deallocate(out_data)
   deallocate(durations)
+  deallocate(durations_omp)
 
 end program benchmark_resnet_test

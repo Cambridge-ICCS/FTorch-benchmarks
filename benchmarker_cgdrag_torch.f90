@@ -1,6 +1,7 @@
 program benchmark_cgdrag_test
 
   use, intrinsic :: iso_c_binding
+  use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert_real_2d, setup, print_time_stats
   use :: ftorch
 
@@ -9,6 +10,8 @@ program benchmark_cgdrag_test
   integer :: i, j, k, ii, jj, kk, n
   real :: start_time, end_time
   real, allocatable :: durations(:)
+  double precision :: start_omp, end_omp
+  double precision, allocatable :: durations_omp(:)
 
   integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
   real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
@@ -47,6 +50,7 @@ program benchmark_cgdrag_test
   call setup(model_dir, model_name, ntimes, n)
 
   allocate(durations(ntimes))
+  allocate(durations_omp(ntimes))
 
   ! Read gravity wave parameterisation data in from file
   allocate(uuu(I_MAX, J_MAX, K_MAX))
@@ -120,9 +124,11 @@ program benchmark_cgdrag_test
     gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
 
     ! Run model and Infer
+    start_omp = omp_get_wtime()
     call cpu_time(start_time)
     call torch_module_forward(model, in_tensors, n_inputs, gwfcng_y_tensor)
     call cpu_time(end_time)
+    end_omp = omp_get_wtime()
 
     ! Clean up.
     call torch_tensor_delete(gwfcng_y_tensor)
@@ -132,9 +138,13 @@ program benchmark_cgdrag_test
     end do
 
     durations(i) = end_time-start_time
+    durations_omp(i) = end_omp-start_omp
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
     print *, trim(msg)
+    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations_omp(i), " s) [omp]"
+    print *, trim(msg)
+
     ! write (*,*) gwfcng_x(1, 1, 1:10)
     !write (*,*) gwfcng_y(1, 1, 1:10)
     ! call assert_real_2d(big_array, big_result/2., test_name=msg)
@@ -152,6 +162,7 @@ program benchmark_cgdrag_test
   end do
 
   call print_time_stats(durations)
+  call print_time_stats(durations_omp)
 
   ! Check error innit
   !write(*,*) "Before check Arr:"
@@ -168,5 +179,6 @@ program benchmark_cgdrag_test
   deallocate(lat)
   deallocate(psfc)
   deallocate(durations)
+  deallocate(durations_omp)
 
 end program benchmark_cgdrag_test

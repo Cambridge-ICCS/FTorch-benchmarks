@@ -1,6 +1,7 @@
 program benchmark_resnet
 
   use, intrinsic :: iso_c_binding
+  use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert_real_2d, setup, error_mesg, print_time_stats
   use :: forpy_mod, only: import_py, module_py, call_py, object, ndarray, &
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
@@ -11,7 +12,9 @@ program benchmark_resnet
 
   integer :: i, n
   real :: start_time, end_time
+  double precision :: start_omp, end_omp
   real, allocatable :: durations(:)
+  double precision, allocatable :: durations_omp(:)
   real, dimension(:,:,:,:), allocatable, asynchronous :: in_data
   real, dimension(:,:), allocatable, asynchronous :: out_data
 
@@ -38,6 +41,7 @@ program benchmark_resnet
   allocate(in_data(1, 3, 224, 224))
   allocate(out_data(1, 1000))
   allocate(durations(ntimes))
+  allocate(durations_omp(ntimes))
 
   ie = forpy_initialize()
   ie = str_create(py_model_dir, trim(model_dir))
@@ -73,6 +77,7 @@ program benchmark_resnet
 
     in_data = 1.0d0
 
+    start_omp = omp_get_wtime()
     call cpu_time(start_time)
 
     ! creates numpy arrays
@@ -97,18 +102,25 @@ program benchmark_resnet
     call args%destroy
 
     call cpu_time(end_time)
+    end_omp = omp_get_wtime()
     durations(i) = end_time-start_time
+    durations_omp(i) = end_omp-start_omp
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
     print *, trim(msg)
-    write (*,*) out_data(1, 1000)
+    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations_omp(i), " s) [omp]"
+    print *, trim(msg)
+    ! write (*,*) out_data(1, 1000)
+
     ! call assert_real_2d(in_data, out_data/2., test_name=msg)
   end do
 
   call print_time_stats(durations)
+  call print_time_stats(durations_omp)
 
   deallocate(in_data)
   deallocate(out_data)
   deallocate(durations)
+  deallocate(durations_omp)
 
 end program benchmark_resnet
