@@ -1,6 +1,7 @@
 program benchmark_stride_test
 
   use, intrinsic :: iso_c_binding
+  use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert_real_2d, setup, error_mesg, print_time_stats
   use :: forpy_mod, only: import_py, module_py, call_py, object, ndarray, &
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
@@ -10,8 +11,8 @@ program benchmark_stride_test
   implicit none
 
   integer :: i, n
-  real :: start_time, end_time
-  real, allocatable :: durations(:)
+  double precision :: start_time, end_time
+  double precision, allocatable :: durations(:)
   real, dimension(:,:), allocatable, asynchronous :: big_array, big_result
 
   integer :: ie
@@ -72,7 +73,7 @@ program benchmark_stride_test
 
     call random_number(big_array)
 
-    call cpu_time(start_time)
+    start_time = omp_get_wtime()
 
     ! creates numpy arrays
     ie = ndarray_create_nocopy(big_array_nd, big_array)
@@ -95,11 +96,11 @@ program benchmark_stride_test
     call big_array_nd%destroy
     call args%destroy
 
-    call cpu_time(end_time)
+    end_time = omp_get_wtime()
     durations(i) = end_time-start_time
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     big_array(1, 2) = -1.0*big_array(1, 2)
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
+    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     call assert_real_2d(big_array, big_result/2., test_name=msg)
   end do
 

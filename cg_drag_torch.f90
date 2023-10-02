@@ -145,7 +145,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !---------------------------------------------------------------------
 
-  integer :: imax, jmax, kmax, j, k
+  integer :: imax, jmax, kmax
 
   integer(c_int), parameter :: dims_2D = 2
   integer(c_int64_t) :: shape_2D(dims_2D)
@@ -197,6 +197,8 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ! Run model and Infer
   call torch_module_forward(model, model_input_arr, n_inputs, gwfcng_y_tensor)
 
+  write (*,*) gwfcng_x(1, 1, 1:10)
+  write (*,*) gwfcng_y(1, 1, 1:10)
   ! Cleanup
   call torch_tensor_delete(model_input_arr(1))
   call torch_tensor_delete(model_input_arr(2))

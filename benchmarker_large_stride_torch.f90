@@ -1,14 +1,15 @@
 program benchmark_stride_test
 
   use, intrinsic :: iso_c_binding
+  use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert_real_2d, setup, print_time_stats
   use :: ftorch
 
   implicit none
 
   integer :: i, ii, n
-  real :: start_time, end_time
-  real, allocatable :: durations(:)
+  double precision :: start_time, end_time
+  double precision, allocatable :: durations(:)
   real, dimension(:,:), allocatable, target :: big_array, big_result
 
   integer(c_int), parameter :: n_inputs = 1
@@ -40,7 +41,7 @@ program benchmark_stride_test
 
     call random_number(big_array)
 
-    call cpu_time(start_time)
+    start_time = omp_get_wtime()
 
     ! Create input and output tensors for the model.
     input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_kFloat32, torch_kCPU, stride_2d)
@@ -54,12 +55,12 @@ program benchmark_stride_test
       call torch_tensor_delete(input_array(ii))
     end do
 
-    call cpu_time(end_time)
+    end_time = omp_get_wtime()
 
     durations(i) = end_time-start_time
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     big_array(1, 2) = -1.0*big_array(1, 2)
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
+    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     call assert_real_2d(big_array, big_result/2., test_name=msg)
   end do
 

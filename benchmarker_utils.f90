@@ -1,6 +1,12 @@
 module utils
 
+  use, intrinsic :: iso_fortran_env, only : dp => real64
+
   implicit none
+
+  interface print_time_stats
+    module procedure print_time_stats_real, print_time_stats_dp
+  end interface
 
 contains
 
@@ -32,17 +38,63 @@ contains
 
   end subroutine assert_real_2d
 
-  subroutine print_time_stats(durations)
+  subroutine print_time_stats_real(durations)
 
     implicit none
 
     real, intent(in) :: durations(:)
+    integer :: i, n
+    real :: mean, var, stddev
 
-    write(*,*) "min  time taken (s): ", minval(durations)
-    write(*,*) "max  time taken (s): ", maxval(durations)
-    write(*,*) "mean time taken (s): ", sum(durations) / size(durations, 1)
+    ! skip the first element because this is always slower
+    n = size(durations(2:), 1)
 
-  end subroutine print_time_stats
+    mean = sum(durations(2:)) / n
+
+    var = 0.
+
+    do i = 2, n
+      var = var + ( (durations(i) - mean)**2 / (n - 1) ) ! (n - 1) here is for corrected sample standard deviation
+    end do
+
+    stddev = sqrt(var)
+
+    write(*,'(A,F10.4)') "min    time taken (s): ", minval(durations(2:))
+    write(*,'(A,F10.4)') "max    time taken (s): ", maxval(durations(2:))
+    write(*,'(A,F10.4)') "mean   time taken (s): ", mean
+    write(*,'(A,F10.4)') "stddev time taken (s): ", stddev
+    write(*,'(A,I10)')   "sample size          : ", n
+
+  end subroutine print_time_stats_real
+
+  subroutine print_time_stats_dp(durations)
+
+    implicit none
+
+    double precision, intent(in) :: durations(:)
+    integer :: i, n
+    double precision :: mean, var, stddev
+
+    ! skip the first element because this is always slower
+    n = size(durations(2:), 1)
+
+    mean = sum(durations(2:)) / n
+
+    var = 0._dp
+
+    do i = 2, n
+      var = var + ( (durations(i) - mean)**2._dp / (n - 1._dp) ) ! (n - 1) here is for corrected sample standard deviation
+    end do
+
+    stddev = sqrt(var)
+
+    write(*,'(A,F10.4,A)') "min    time taken (s): ", minval(durations(2:)), " [omp]"
+    write(*,'(A,F10.4,A)') "max    time taken (s): ", maxval(durations(2:)), " [omp]"
+    write(*,'(A,F10.4,A)') "mean   time taken (s): ", mean, " [omp]"
+    write(*,'(A,F10.4,A)') "stddev time taken (s): ", stddev, " [omp]"
+    write(*,'(A,I10)')     "sample size          : ", n
+
+  end subroutine print_time_stats_dp
 
   subroutine print_array_2d(array)
 
