@@ -26,6 +26,8 @@ contains
 
     if (.not. present(rtol_opt)) then
       rtol = 1e-5
+    else
+      rtol = rtol_opt
     end if
 
     relative_error = maxval(abs(a/b - 1.))
