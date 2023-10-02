@@ -8,10 +8,8 @@ program benchmark_resnet_test
   implicit none
 
   integer :: i, ii, n
-  real :: start_time, end_time
-  double precision :: start_omp, end_omp
-  real, allocatable :: durations(:)
-  double precision, allocatable :: durations_omp(:)
+  double precision :: start_time, end_time
+  double precision, allocatable :: durations(:)
 
   real(c_float), dimension(:,:,:,:), allocatable, target :: in_data
   integer(c_int), parameter :: n_inputs = 1
@@ -39,7 +37,6 @@ program benchmark_resnet_test
   allocate(in_data(in_shape(1), in_shape(2), in_shape(3), in_shape(4)))
   allocate(out_data(out_shape(1), out_shape(2)))
   allocate(durations(ntimes))
-  allocate(durations_omp(ntimes))
 
   model = torch_module_load(model_dir//"/"//model_name//C_NULL_CHAR)
 
@@ -48,8 +45,7 @@ program benchmark_resnet_test
     ! Initialise data
     in_data = 1.0d0
 
-    start_omp = omp_get_wtime()
-    call cpu_time(start_time)
+    start_time = omp_get_wtime()
 
     ! Create input and output tensors for the model.
     in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_kFloat32, torch_kCPU, in_layout)
@@ -63,22 +59,15 @@ program benchmark_resnet_test
       call torch_tensor_delete(in_tensor(ii))
     end do
 
-    call cpu_time(end_time)
-    end_omp = omp_get_wtime()
+    end_time = omp_get_wtime()
 
     durations(i) = end_time-start_time
-    durations_omp(i) = end_omp-start_omp
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
+    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     print *, trim(msg)
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations_omp(i), " s) [omp]"
-    print *, trim(msg)
-    ! write (*,*) out_data(1, 1000)
-    ! call assert_real_2d(big_array, big_result/2., test_name=msg)
   end do
 
   call print_time_stats(durations)
-  call print_time_stats(durations_omp)
 
 
   call torch_module_delete(model)
@@ -86,6 +75,5 @@ program benchmark_resnet_test
   deallocate(in_data)
   deallocate(out_data)
   deallocate(durations)
-  deallocate(durations_omp)
 
 end program benchmark_resnet_test

@@ -11,10 +11,8 @@ program benchmark_cgdrag_test
   implicit none
 
   integer :: i, j, k, ii, jj, kk, n
-  real :: start_time, end_time
-  double precision :: start_omp, end_omp
-  real, allocatable :: durations(:)
-  double precision, allocatable :: durations_omp(:)
+  double precision :: start_time, end_time
+  double precision, allocatable :: durations(:)
 
   integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
   real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
@@ -47,7 +45,6 @@ program benchmark_cgdrag_test
   call setup(model_dir, model_name, ntimes, n)
 
   allocate(durations(ntimes))
-  allocate(durations_omp(ntimes))
 
   ! Read gravity wave parameterisation data in from file
   allocate(uuu(I_MAX, J_MAX, K_MAX))
@@ -150,11 +147,9 @@ program benchmark_cgdrag_test
     ie = args%setitem(1, vvv_nd)
     ie = args%setitem(4, gwfcng_y_nd)
 
-    start_omp = omp_get_wtime()
-    call cpu_time(start_time)
+    start_time = omp_get_wtime()
     ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
-    call cpu_time(end_time)
-    end_omp = omp_get_wtime()
+    end_time = omp_get_wtime()
 
     if (ie .ne. 0) then
         call err_print
@@ -178,15 +173,9 @@ program benchmark_cgdrag_test
     call args%destroy
 
     durations(i) = end_time-start_time
-    durations_omp(i) = end_omp-start_omp
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
+    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     print *, trim(msg)
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations_omp(i), " s) [omp]"
-    print *, trim(msg)
-    !write (*,*) gwfcng_x(1, 1, 1:10)
-    !write (*,*) gwfcng_y(1, 1, 1:10)
-    
     ! call assert_real_2d(in_data, out_data/2., test_name=msg)
   end do
 
@@ -200,7 +189,6 @@ program benchmark_cgdrag_test
   close(20)
   
   call print_time_stats(durations)
-  call print_time_stats(durations_omp)
 
   deallocate(uuu)
   deallocate(vvv)
@@ -215,6 +203,5 @@ program benchmark_cgdrag_test
   deallocate( gwfcng_x_flattened)
   deallocate( gwfcng_y_flattened)
   deallocate(durations)
-  deallocate(durations_omp)
 
 end program benchmark_cgdrag_test

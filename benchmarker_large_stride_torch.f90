@@ -8,10 +8,8 @@ program benchmark_stride_test
   implicit none
 
   integer :: i, ii, n
-  real :: start_time, end_time
-  real, allocatable :: durations(:)
-  double precision :: start_omp, end_omp
-  double precision, allocatable :: durations_omp(:)
+  double precision :: start_time, end_time
+  double precision, allocatable :: durations(:)
   real, dimension(:,:), allocatable, target :: big_array, big_result
 
   integer(c_int), parameter :: n_inputs = 1
@@ -33,7 +31,6 @@ program benchmark_stride_test
   allocate(big_array(n, n))
   allocate(big_result(n, n))
   allocate(durations(ntimes))
-  allocate(durations_omp(ntimes))
 
   model = torch_module_load(model_dir//"/"//model_name)
 
@@ -44,8 +41,7 @@ program benchmark_stride_test
 
     call random_number(big_array)
 
-    start_omp = omp_get_wtime()
-    call cpu_time(start_time)
+    start_time = omp_get_wtime()
 
     ! Create input and output tensors for the model.
     input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_kFloat32, torch_kCPU, stride_2d)
@@ -59,21 +55,16 @@ program benchmark_stride_test
       call torch_tensor_delete(input_array(ii))
     end do
 
-    call cpu_time(end_time)
-    end_omp = omp_get_wtime()
+    end_time = omp_get_wtime()
 
     durations(i) = end_time-start_time
-    durations_omp(i) = end_omp-start_omp
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     big_array(1, 2) = -1.0*big_array(1, 2)
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s)"
-    call assert_real_2d(big_array, big_result/2., test_name=msg)
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations_omp(i), " s) [omp]"
+    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     call assert_real_2d(big_array, big_result/2., test_name=msg)
   end do
 
   call print_time_stats(durations)
-  call print_time_stats(durations_omp)
 
 
   call torch_module_delete(model)
@@ -81,6 +72,5 @@ program benchmark_stride_test
   deallocate(big_array)
   deallocate(big_result)
   deallocate(durations)
-  deallocate(durations_omp)
 
 end program
