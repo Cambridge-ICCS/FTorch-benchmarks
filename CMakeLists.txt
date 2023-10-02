@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(fortran-pytorch-lib-benchmark Fortran)
+project(FTorch-benchmark Fortran)
 
 # Set a custom build type called Profile that is based on RelWithDebInfo
 # and populate it with flags to use instrumented profiling (gprof).
