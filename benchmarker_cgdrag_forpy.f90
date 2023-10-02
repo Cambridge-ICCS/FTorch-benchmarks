@@ -179,14 +179,14 @@ program benchmark_cgdrag_test
     ! call assert_real_2d(in_data, out_data/2., test_name=msg)
   end do
 
-  open(10,file="forpy_reference_x.txt")
-  open(20,file="forpy_reference_y.txt")
+  ! open(10,file="forpy_reference_x.txt")
+  ! open(20,file="forpy_reference_y.txt")
 
-  write(10,*) gwfcng_x
-  write(20,*) gwfcng_y
+  ! write(10,*) gwfcng_x
+  ! write(20,*) gwfcng_y
 
-  close(10)
-  close(20)
+  ! close(10)
+  ! close(20)
   
   call print_time_stats(durations)
 

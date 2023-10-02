@@ -85,8 +85,8 @@ program benchmark_cgdrag_test
   allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
   allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
   
-  open(10,file="forpy_reference_x.txt")
-  open(20,file="forpy_reference_y.txt")
+  open(10,file="../input_data/forpy_reference_x.txt")
+  open(20,file="../input_data/forpy_reference_y.txt")
 
   read(10,*) gwfcng_x_ref
   read(20,*) gwfcng_y_ref
