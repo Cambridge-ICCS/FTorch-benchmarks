@@ -2,7 +2,7 @@ program benchmark_resnet
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert_real_2d, setup, error_mesg, print_time_stats
+  use :: utils, only : assert_real, setup, error_mesg, print_time_stats
   use :: forpy_mod, only: import_py, module_py, call_py, object, ndarray, &
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
@@ -10,106 +10,186 @@ program benchmark_resnet
 
   implicit none
 
-  integer :: i, n
-  double precision :: start_time, end_time
-  double precision, allocatable :: durations(:)
-  real, dimension(:,:,:,:), allocatable, asynchronous :: in_data
-  real, dimension(:,:), allocatable, asynchronous :: out_data
+  call main()
 
-  integer :: ie
-  type(module_py) :: run_emulator
-  type(list) :: paths
-  type(object) :: model
-  type(tuple) :: args
-  type(str) :: py_model_dir
+  contains
+
+  subroutine main()
+
+    implicit none
+
+    integer :: i, n
+    double precision :: start_time, end_time
+    double precision, allocatable :: durations(:)
+    real, dimension(:,:,:,:), allocatable, asynchronous :: in_data
+    real, dimension(:,:), allocatable, asynchronous :: out_data
+
+    integer :: ie
+    type(module_py) :: run_emulator
+    type(list) :: paths
+    type(object) :: model
+    type(tuple) :: args
+    type(str) :: py_model_dir
 #ifdef USETS
-  type(str) :: filename
+    type(str) :: filename
 #endif
 
-  character(len=:), allocatable :: model_dir, model_name
-  character(len=128) :: msg
-  integer :: ntimes
+    character(len=:), allocatable :: model_dir, model_name
+    character(len=128) :: msg
+    integer :: ntimes
 
-  type(ndarray) :: out_data_nd, in_data_nd
+    type(ndarray) :: out_data_nd, in_data_nd
 
-  print *, "====== FORPY ======"
+    ! Binary file containing input tensor
+    character(len=*), parameter :: data_file = '/home/ek/ICCS/fortran-pytorch-lib/examples/2_ResNet18/data/image_tensor.dat'
 
-  call setup(model_dir, model_name, ntimes, n)
+    ! Length of tensor and number of categories
+    integer, parameter :: tensor_length = 150528
 
-  allocate(in_data(1, 3, 224, 224))
-  allocate(out_data(1, 1000))
-  allocate(durations(ntimes))
+    ! Outputs
+    integer :: idx(2)
+    real, dimension(:,:), allocatable :: probabilities
+    real, parameter :: expected_prob = 0.8846225142478943
+    real :: probability
 
-  ie = forpy_initialize()
-  ie = str_create(py_model_dir, trim(model_dir))
-  ie = get_sys_path(paths)
-  ie = paths%append(py_model_dir)
+    print *, "====== FORPY ======"
 
-  ! import python modules to `run_emulator`
-  ie = import_py(run_emulator, trim(model_name))
-  if (ie .ne. 0) then
-      call err_print
-      call error_mesg(__FILE__, __LINE__, "forpy model not loaded")
-  end if
+    call setup(model_dir, model_name, ntimes, n)
 
-#ifdef USETS
-  print *, "load torchscript model"
-  ! load torchscript saved model
-  ie = tuple_create(args,1)
-  ie = str_create(filename, trim(model_dir//'/saved_resnet18_model_cpu.pt'))
-  ie = args%setitem(0, filename)
-  ie = call_py(model, run_emulator, "initialize_ts", args)
-  call args%destroy
-#else
-  print *, "generate model in python runtime"
-  ! use python module `run_emulator` to load a trained model
-  ie = call_py(model, run_emulator, "initialize")
-#endif
-  if (ie .ne. 0) then
-      call err_print
-      call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
-  end if
+    allocate(in_data(1, 3, 224, 224))
+    allocate(out_data(1, 1000))
+    allocate(durations(ntimes))
+    allocate(probabilities(1, 1000))
 
-  do i = 1, ntimes
+    ie = forpy_initialize()
+    ie = str_create(py_model_dir, trim(model_dir))
+    ie = get_sys_path(paths)
+    ie = paths%append(py_model_dir)
 
-    in_data = 1.0d0
-
-    start_time = omp_get_wtime()
-
-    ! creates numpy arrays
-    ie = ndarray_create_nocopy(in_data_nd, in_data)
-    ie = ndarray_create_nocopy(out_data_nd, out_data)
-
-    ! create model input args as tuple
-    ie = tuple_create(args,3)
-    ie = args%setitem(0, model)
-    ie = args%setitem(1, in_data_nd)
-    ie = args%setitem(2, out_data_nd)
-
-    ie = call_py_noret(run_emulator, "compute", args)
+    ! import python modules to `run_emulator`
+    ie = import_py(run_emulator, trim(model_name))
     if (ie .ne. 0) then
         call err_print
-        call error_mesg(__FILE__, __LINE__, "inference call failed")
+        call error_mesg(__FILE__, __LINE__, "forpy model not loaded")
     end if
 
-    ! Clean up.
-    call out_data_nd%destroy
-    call in_data_nd%destroy
+#ifdef USETS
+    print *, "load torchscript model"
+    ! load torchscript saved model
+    ie = tuple_create(args,1)
+    ie = str_create(filename, trim(model_dir//'/saved_resnet18_model_cpu.pt'))
+    ie = args%setitem(0, filename)
+    ie = call_py(model, run_emulator, "initialize_ts", args)
     call args%destroy
+#else
+    print *, "generate model in python runtime"
+    ! use python module `run_emulator` to load a trained model
+    ie = call_py(model, run_emulator, "initialize")
+#endif
+    if (ie .ne. 0) then
+        call err_print
+        call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
+    end if
 
-    end_time = omp_get_wtime()
-    durations(i) = end_time-start_time
-    ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
-    print *, trim(msg)
+    call load_data(data_file, tensor_length, in_data)
 
-    ! call assert_real_2d(in_data, out_data/2., test_name=msg)
-  end do
+    do i = 1, ntimes
 
-  call print_time_stats(durations)
+      start_time = omp_get_wtime()
 
-  deallocate(in_data)
-  deallocate(out_data)
-  deallocate(durations)
+      ! creates numpy arrays
+      ie = ndarray_create_nocopy(in_data_nd, in_data)
+      ie = ndarray_create_nocopy(out_data_nd, out_data)
+
+      ! create model input args as tuple
+      ie = tuple_create(args,3)
+      ie = args%setitem(0, model)
+      ie = args%setitem(1, in_data_nd)
+      ie = args%setitem(2, out_data_nd)
+
+      ie = call_py_noret(run_emulator, "compute", args)
+      if (ie .ne. 0) then
+          call err_print
+          call error_mesg(__FILE__, __LINE__, "inference call failed")
+      end if
+
+      ! Clean up.
+      call out_data_nd%destroy
+      call in_data_nd%destroy
+      call args%destroy
+
+      end_time = omp_get_wtime()
+      durations(i) = end_time-start_time
+
+      ! Calculate probabilities and output results
+      call calc_probs(out_data, probabilities)
+      idx = maxloc(probabilities)
+      probability = maxval(probabilities)
+
+      ! Check top probability matches expected value
+      call assert_real(probability, expected_prob, test_name="Check probability", rtol_opt=1e-5)
+
+      ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
+      write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
+      print *, trim(msg)
+
+    end do
+
+    call print_time_stats(durations)
+
+    deallocate(in_data)
+    deallocate(out_data)
+    deallocate(durations)
+    deallocate(probabilities)
+
+  end subroutine main
+
+  subroutine load_data(filename, tensor_length, in_data)
+
+    implicit none
+
+    character(len=*), intent(in) :: filename
+    integer, intent(in) :: tensor_length
+    real, dimension(:,:,:,:), intent(out) :: in_data
+
+    real :: flat_data(tensor_length)
+    integer :: ios
+    character(len=100) :: ioerrmsg
+
+    ! Read input tensor from Python script
+    open(unit=10, file=filename, status='old', access='stream', form='unformatted', action="read", iostat=ios, iomsg=ioerrmsg)
+    if (ios /= 0) then
+    print *, ioerrmsg
+    stop 1
+    end if
+
+    read(10, iostat=ios, iomsg=ioerrmsg) flat_data
+    if (ios /= 0) then
+        print *, ioerrmsg
+        stop 1
+    end if
+
+    close(10)
+
+    ! Reshape data to tensor input shape
+    ! This assumes the data from Python was transposed before saving
+    in_data = reshape(flat_data, shape(in_data))
+
+  end subroutine load_data
+
+  subroutine calc_probs(out_data, probabilities)
+
+    implicit none
+
+    real, dimension(:,:), intent(in) :: out_data
+    real, dimension(:,:), intent(out) :: probabilities
+    real :: prob_sum
+
+    ! Apply softmax function to calculate probabilties
+    probabilities = exp(out_data)
+    prob_sum = sum(probabilities)
+    probabilities = probabilities / prob_sum
+
+  end subroutine calc_probs
 
 end program benchmark_resnet
