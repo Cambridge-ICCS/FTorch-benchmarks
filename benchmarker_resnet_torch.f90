@@ -46,13 +46,13 @@ program benchmark_resnet_test
     type(torch_tensor) :: out_tensor
 
     ! Binary file containing input tensor
-    character(len=*), parameter :: filename = '/home/ek/ICCS/fortran-pytorch-lib/examples/2_ResNet18/data/image_tensor.dat'
+    character(len=*), parameter :: filename = '../resnetmodel/image_tensor.dat'
 
     ! Length of tensor and number of categories
     integer, parameter :: tensor_length = 150528
 
     ! Outputs
-    integer :: index(2)
+    integer :: idx(2)
     real(wp), dimension(:,:), allocatable :: probabilities
     real(wp), parameter :: expected_prob = 0.8846225142478943
     real(wp) :: probability
@@ -88,16 +88,16 @@ program benchmark_resnet_test
       end do
 
       end_time = omp_get_wtime()
+      durations(i) = end_time-start_time
 
       ! Calculate probabilities and output results
       call calc_probs(out_data, probabilities)
-      index = maxloc(probabilities)
+      idx = maxloc(probabilities)
       probability = maxval(probabilities)
 
       ! Check top probability matches expected value
       call assert_real(probability, expected_prob, test_name="Check probability", rtol_opt=1e-5)
 
-      durations(i) = end_time-start_time
       ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
       write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
       print *, trim(msg)

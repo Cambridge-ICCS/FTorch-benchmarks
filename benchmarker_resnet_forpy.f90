@@ -41,7 +41,7 @@ program benchmark_resnet
     type(ndarray) :: out_data_nd, in_data_nd
 
     ! Binary file containing input tensor
-    character(len=*), parameter :: data_file = '/home/ek/ICCS/fortran-pytorch-lib/examples/2_ResNet18/data/image_tensor.dat'
+    character(len=*), parameter :: data_file = '../resnetmodel/image_tensor.dat'
 
     ! Length of tensor and number of categories
     integer, parameter :: tensor_length = 150528
