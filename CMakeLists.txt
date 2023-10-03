@@ -83,7 +83,7 @@ target_sources(benchmarker_large_stride_torch PRIVATE benchmarker_utils.f90)
 # resnet test
 add_executable(benchmarker_resnet_torch benchmarker_resnet_torch.f90)
 target_link_libraries(benchmarker_resnet_torch PRIVATE FTorch::ftorch )
-target_sources(benchmarker_resnet_torch PRIVATE benchmarker_utils.f90)
+target_sources(benchmarker_resnet_torch PRIVATE benchmarker_utils.f90 precision_mod.f90)
 
 # cgdrag test
 add_executable(benchmarker_cgdrag_torch benchmarker_cgdrag_torch.f90)
@@ -126,7 +126,7 @@ endif()
 # resnet test
 option(USETS "Use torchscript format for forpy test" OFF)
 add_executable(benchmarker_resnet_forpy benchmarker_resnet_forpy.f90)
-target_sources(benchmarker_resnet_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils.f90)
+target_sources(benchmarker_resnet_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils.f90 precision_mod.f90)
 target_link_libraries(benchmarker_resnet_forpy PRIVATE Python::Python)
 
 if (USETS)

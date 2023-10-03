@@ -7,8 +7,11 @@ program benchmark_resnet
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
                           get_sys_path, ndarray_create_nocopy, str, str_create
+  use :: precision, only: sp, dp
 
   implicit none
+
+  integer, parameter :: wp = sp
 
   call main()
 
@@ -21,8 +24,8 @@ program benchmark_resnet
     integer :: i, n
     double precision :: start_time, end_time
     double precision, allocatable :: durations(:)
-    real, dimension(:,:,:,:), allocatable, asynchronous :: in_data
-    real, dimension(:,:), allocatable, asynchronous :: out_data
+    real(wp), dimension(:,:,:,:), allocatable, asynchronous :: in_data
+    real(wp), dimension(:,:), allocatable, asynchronous :: out_data
 
     integer :: ie
     type(module_py) :: run_emulator
@@ -48,9 +51,9 @@ program benchmark_resnet
 
     ! Outputs
     integer :: idx(2)
-    real, dimension(:,:), allocatable :: probabilities
-    real, parameter :: expected_prob = 0.8846225142478943
-    real :: probability
+    real(wp), dimension(:,:), allocatable :: probabilities
+    real(wp), parameter :: expected_prob = 0.8846225142478943
+    real(wp) :: probability
 
     print *, "====== FORPY ======"
 
@@ -150,9 +153,9 @@ program benchmark_resnet
 
     character(len=*), intent(in) :: filename
     integer, intent(in) :: tensor_length
-    real, dimension(:,:,:,:), intent(out) :: in_data
+    real(wp), dimension(:,:,:,:), intent(out) :: in_data
 
-    real :: flat_data(tensor_length)
+    real(wp) :: flat_data(tensor_length)
     integer :: ios
     character(len=100) :: ioerrmsg
 
@@ -181,9 +184,9 @@ program benchmark_resnet
 
     implicit none
 
-    real, dimension(:,:), intent(in) :: out_data
-    real, dimension(:,:), intent(out) :: probabilities
-    real :: prob_sum
+    real(wp), dimension(:,:), intent(in) :: out_data
+    real(wp), dimension(:,:), intent(out) :: probabilities
+    real(wp) :: prob_sum
 
     ! Apply softmax function to calculate probabilties
     probabilities = exp(out_data)

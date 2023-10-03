@@ -1,12 +1,11 @@
 program benchmark_resnet_test
 
-  ! Imports primitives used to interface with C
-  use, intrinsic :: iso_c_binding, only: c_sp=>c_float, c_dp=>c_double, c_int64_t, c_null_char, c_loc
+  use, intrinsic :: iso_c_binding, only: c_int64_t, c_null_char, c_loc
   use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert_real, setup, print_time_stats
   ! Import our library for interfacing with PyTorch
   use :: ftorch
-  use, intrinsic :: iso_fortran_env, only : sp => real32, dp => real64
+  use :: precision, only: c_sp, c_dp, sp, dp
 
   implicit none
 
