@@ -8,6 +8,10 @@ module utils
     module procedure print_time_stats_real, print_time_stats_dp
   end interface
 
+  interface assert
+    module procedure assert_real_2d, assert_real
+  end interface
+
 contains
 
   subroutine assert_real_2d(a, b, test_name, rtol_opt)

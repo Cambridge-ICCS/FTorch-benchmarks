@@ -2,7 +2,7 @@ program benchmark_resnet
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert_real, setup, error_mesg, print_time_stats
+  use :: utils, only : assert, setup, error_mesg, print_time_stats
   use :: forpy_mod, only: import_py, module_py, call_py, object, ndarray, &
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
@@ -130,7 +130,7 @@ program benchmark_resnet
       probability = maxval(probabilities)
 
       ! Check top probability matches expected value
-      call assert_real(probability, expected_prob, test_name="Check probability", rtol_opt=1e-5)
+      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1e-5)
 
       ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
       write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"

@@ -2,7 +2,7 @@ program benchmark_cgdrag_test
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert_real_2d, setup, print_time_stats
+  use :: utils, only : assert, setup, print_time_stats
   use :: ftorch
 
   implicit none
@@ -137,7 +137,7 @@ program benchmark_cgdrag_test
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     print *, trim(msg)
 
-    ! call assert_real_2d(big_array, big_result/2., test_name=msg)
+    ! call assert(big_array, big_result/2., test_name=msg)
 
     ! Check error
     if (maxval(abs((gwfcng_x - gwfcng_x_ref)/gwfcng_x_ref)) >= 1.0e-6) then
