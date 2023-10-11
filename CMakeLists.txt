@@ -91,7 +91,10 @@ target_link_libraries(benchmarker_cgdrag_torch PRIVATE FTorch::ftorch )
 target_sources(benchmarker_cgdrag_torch PRIVATE benchmarker_utils.f90)
 
 # Make sure python present
-find_package(Python REQUIRED COMPONENTS Development)
+# Search until Python version satisfying constraints is located
+set(Python_FIND_STRATEGY LOCATION)
+# Load interpreter and matching directories/libraries
+find_package(Python REQUIRED COMPONENTS Interpreter Development)
 
 
 # Benchmarking Forpy
