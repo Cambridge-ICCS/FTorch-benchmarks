@@ -2,7 +2,7 @@ program benchmark_stride_test
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert_real_2d, setup, print_time_stats
+  use :: utils, only : assert, setup, print_time_stats
   use :: ftorch
 
   implicit none
@@ -61,7 +61,7 @@ program benchmark_stride_test
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     big_array(1, 2) = -1.0*big_array(1, 2)
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
-    call assert_real_2d(big_array, big_result/2., test_name=msg)
+    call assert(big_array, big_result/2., test_name=msg)
   end do
 
   call print_time_stats(durations)
