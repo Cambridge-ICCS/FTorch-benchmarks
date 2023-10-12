@@ -74,7 +74,7 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   !    an ML model
   !
   !-----------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------
   !    intent(in) variables:
   !
@@ -83,19 +83,19 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   !-----------------------------------------------------------------
   character(len=1024), intent(in)        :: model_dir
   character(len=1024), intent(in)        :: model_name
-  
+
   !-----------------------------------------------------------------
-  
+
   ! Initialise the ML model to be used
   ie = forpy_initialize()
-  
+
   ! Add the directory containing forpy related scripts and data to sys.path
   ! This does not appear to work?
   ! export PYTHONPATH=model_dir in the job environment.
   ie = str_create(py_model_dir, trim(model_dir))
   ie = get_sys_path(paths)
   ie = paths%append(py_model_dir)
-  
+
   ! import python modules to `run_emulator`
   ! Note, this will need to be able to load its dependencies
   ! such as `torch`, so you will probably need a venv.
@@ -104,7 +104,7 @@ subroutine cg_drag_ML_init(model_dir, model_name)
       call err_print
       call error_mesg('cg_drag', 'forpy model not loaded', FATAL)
   end if
-  
+
   ! call initialize function from `run_emulator` python module
   ! loads a trained model to `model`
   ie = call_py(model, run_emulator, "initialize")
@@ -126,10 +126,10 @@ subroutine cg_drag_ML_end
   !    as an ML model.
   !
   !-----------------------------------------------------------------
-  
+
   ! destroy the forpy objects
   !
-  ! according to forpy no destroy nethod for strings such as 
+  ! according to forpy no destroy nethod for strings such as
   ! py_model_dir. Because they are just C under the hood?
   call paths%destroy
   call run_emulator%destroy
@@ -149,7 +149,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !    terms following calculation using an external neural net.
   !
   !-----------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------
   !    intent(in) variables:
   !
@@ -165,12 +165,12 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !                [ m/s^2 ]
   !
   !-----------------------------------------------------------------
-  
+
   real(kind=8), dimension(:,:,:), intent(in)    :: uuu, vvv
   real(kind=8), dimension(:,:),   intent(in)    :: lat, psfc
-  
+
   real(kind=8), dimension(:,:,:), intent(out)   :: gwfcng_x, gwfcng_y
-  
+
   !-----------------------------------------------------------------
 
   !-------------------------------------------------------------------
@@ -226,7 +226,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ie = args%setitem(2,lat_nd)
   ie = args%setitem(3,psfc_nd)
   ie = args%setitem(5,jmax)
-  
+
   ! Zonal
   ie = args%setitem(1,uuu_nd)
   ie = args%setitem(4,gwfcng_x_nd)
@@ -236,7 +236,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
       call err_print
       call error_mesg('cg_drag_ML', 'inference x call failed', FATAL)
   end if
-  
+
   ! Meridional
   ie = args%setitem(1,vvv_nd)
   ie = args%setitem(4,gwfcng_y_nd)
@@ -264,7 +264,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   call gwfcng_x_nd%destroy
   call gwfcng_y_nd%destroy
   call args%destroy
-  
+
   deallocate( uuu_flattened )
   deallocate( vvv_flattened )
   deallocate( lat_reshaped )

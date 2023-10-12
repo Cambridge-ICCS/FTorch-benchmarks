@@ -66,7 +66,7 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   !    an ML model
   !
   !-----------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------
   !    intent(in) variables:
   !
@@ -76,9 +76,9 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   !-----------------------------------------------------------------
   character(len=1024), intent(in)        :: model_dir
   character(len=1024), intent(in)        :: model_name
-  
+
   !-----------------------------------------------------------------
-  
+
   ! Initialise the ML model to be used
   model = torch_module_load(trim(model_dir)//"/"//trim(model_name)//c_null_char)
 
@@ -95,7 +95,7 @@ subroutine cg_drag_ML_end
   !    as an ML model.
   !
   !-----------------------------------------------------------------
-  
+
   ! destroy the model
   call torch_module_delete(model)
 
@@ -111,11 +111,11 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !    terms following calculation using an external neural net.
   !
   !-----------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------
   !    intent(in) variables:
   !
-  !       is,js    starting subdomain i,j indices of data in 
+  !       is,js    starting subdomain i,j indices of data in
   !                the physics_window being integrated
   !       uuu,vvv  arrays of model u and v wind
   !       psfc     array of model surface pressure
@@ -129,13 +129,13 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !                [ m/s^2 ]
   !
   !-----------------------------------------------------------------
-  
+
   real(kind=8), dimension(:,:,:), target, intent(in)    :: uuu, vvv
   real(kind=8), dimension(:,:), target,   intent(in)    :: psfc
   real(kind=8), dimension(:,:), target                  :: lat
-  
+
   real(kind=8), dimension(:,:,:), intent(out), target   :: gwfcng_x, gwfcng_y
-  
+
   !-----------------------------------------------------------------
 
   !-------------------------------------------------------------------
@@ -161,7 +161,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   type(torch_tensor) :: gwfcng_x_tensor, gwfcng_y_tensor
   integer(c_int), parameter :: n_inputs = 3
   type(torch_tensor), dimension(n_inputs), target :: model_input_arr
-  
+
   !----------------------------------------------------------------
 
   ! reshape tensors as required
@@ -184,13 +184,13 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ! Create input/output tensors from the above arrays
   model_input_arr(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
   model_input_arr(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
-  
+
   ! Zonal
   model_input_arr(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
   gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
   ! Run model and Infer
   call torch_module_forward(model, model_input_arr, n_inputs, gwfcng_x_tensor)
-  
+
   ! Meridional
   model_input_arr(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
   gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)

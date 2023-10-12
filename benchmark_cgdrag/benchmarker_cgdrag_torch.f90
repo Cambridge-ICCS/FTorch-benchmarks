@@ -31,7 +31,7 @@ program benchmark_cgdrag_test
   integer(c_int), parameter :: dims_out = 2
   integer(c_int64_t) :: shape_out(dims_out) = [I_MAX*J_MAX, K_MAX]
   integer(c_int) :: stride_out(dims_out) = [1,2]
-  
+
   real(kind=8), dimension(:,:), allocatable, target :: uuu_flattened, vvv_flattened
   real(kind=8), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
 
@@ -84,7 +84,7 @@ program benchmark_cgdrag_test
 
   allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
   allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
-  
+
   open(10,file="../cgdrag_model/forpy_reference_x.txt")
   open(20,file="../cgdrag_model/forpy_reference_y.txt")
 
@@ -95,7 +95,7 @@ program benchmark_cgdrag_test
 
   close(10)
   close(20)
-  
+
   do i = 1, ntimes
 
     do j=1,J_MAX
@@ -109,13 +109,13 @@ program benchmark_cgdrag_test
     ! Create input and output tensors for the model.
     in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
     in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
-    
+
     ! Zonal
     in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
     gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
     ! Run model and Infer
     call torch_module_forward(model, in_tensors, n_inputs, gwfcng_x_tensor)
-    
+
     ! Meridional
     in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
     gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)

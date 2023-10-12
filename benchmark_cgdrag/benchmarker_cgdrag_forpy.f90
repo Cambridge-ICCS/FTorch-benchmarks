@@ -19,7 +19,7 @@ program benchmark_cgdrag_test
   real(kind=8), parameter :: RADIAN = 180.0 / PI
   real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
   real(kind=8), dimension(:,:), allocatable :: lat, psfc
-  
+
   real(kind=8), dimension(:,:), allocatable  :: uuu_flattened, vvv_flattened
   real(kind=8), dimension(:,:), allocatable  :: lat_reshaped, psfc_reshaped
   real(kind=8), dimension(:,:), allocatable  :: gwfcng_x_flattened, gwfcng_y_flattened
@@ -53,7 +53,7 @@ program benchmark_cgdrag_test
   allocate(gwfcng_y(I_MAX, J_MAX, K_MAX))
   allocate(lat(I_MAX, J_MAX))
   allocate(psfc(I_MAX, J_MAX))
-  
+
   ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
   allocate( uuu_flattened(I_MAX*J_MAX, K_MAX) )
   allocate( vvv_flattened(I_MAX*J_MAX, K_MAX) )
@@ -187,7 +187,7 @@ program benchmark_cgdrag_test
 
   ! close(10)
   ! close(20)
-  
+
   call print_time_stats(durations)
 
   deallocate(uuu)
