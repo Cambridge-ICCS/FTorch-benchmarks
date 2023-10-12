@@ -45,7 +45,7 @@ program benchmark_resnet_test
     type(torch_tensor) :: out_tensor
 
     ! Binary file containing input tensor
-    character(len=*), parameter :: filename = '../resnetmodel/image_tensor.dat'
+    character(len=*), parameter :: filename = '../resnet_model/image_tensor.dat'
 
     ! Length of tensor and number of categories
     integer, parameter :: tensor_length = 150528

@@ -57,10 +57,10 @@ program benchmark_cgdrag_test
   allocate(lat(I_MAX, J_MAX))
   allocate(psfc(I_MAX, J_MAX))
   ! Read in saved input (and output) values
-  open(10, file='../input_data/uuu.txt')
-  open(11, file='../input_data/vvv.txt')
-  open(12, file='../input_data/lat.txt')
-  open(13, file='../input_data/psfc.txt')
+  open(10, file='../cgdrag_model/uuu.txt')
+  open(11, file='../cgdrag_model/vvv.txt')
+  open(12, file='../cgdrag_model/lat.txt')
+  open(13, file='../cgdrag_model/psfc.txt')
   do i = 1, I_MAX
       do j = 1, J_MAX
           do k = 1, K_MAX
@@ -85,8 +85,8 @@ program benchmark_cgdrag_test
   allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
   allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
   
-  open(10,file="../input_data/forpy_reference_x.txt")
-  open(20,file="../input_data/forpy_reference_y.txt")
+  open(10,file="../cgdrag_model/forpy_reference_x.txt")
+  open(20,file="../cgdrag_model/forpy_reference_y.txt")
 
   read(10,*) gwfcng_x_ref
   read(20,*) gwfcng_y_ref

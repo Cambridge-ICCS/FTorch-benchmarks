@@ -71,22 +71,22 @@ elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fpp -qopenmp -warn all")
 endif()
 
-add_executable(benchmarker_torch benchmarker_torch.f90)
+add_executable(benchmarker_torch benchmark_mima/benchmarker_torch.f90)
 target_link_libraries(benchmarker_torch PRIVATE FTorch::ftorch )
-target_sources(benchmarker_torch PRIVATE cg_drag_torch.f90)
+target_sources(benchmarker_torch PRIVATE benchmark_mima/cg_drag_torch_mod.f90)
 
 # Large stride test
-add_executable(benchmarker_large_stride_torch benchmarker_large_stride_torch.f90)
+add_executable(benchmarker_large_stride_torch benchmark_large_stride/benchmarker_large_stride_torch.f90)
 target_link_libraries(benchmarker_large_stride_torch PRIVATE FTorch::ftorch )
 target_sources(benchmarker_large_stride_torch PRIVATE benchmarker_utils.f90)
 
 # resnet test
-add_executable(benchmarker_resnet_torch benchmarker_resnet_torch.f90)
+add_executable(benchmarker_resnet_torch benchmark_resnet/benchmarker_resnet_torch.f90)
 target_link_libraries(benchmarker_resnet_torch PRIVATE FTorch::ftorch )
 target_sources(benchmarker_resnet_torch PRIVATE benchmarker_utils.f90 precision_mod.f90)
 
 # cgdrag test
-add_executable(benchmarker_cgdrag_torch benchmarker_cgdrag_torch.f90)
+add_executable(benchmarker_cgdrag_torch benchmark_cgdrag/benchmarker_cgdrag_torch.f90)
 target_link_libraries(benchmarker_cgdrag_torch PRIVATE FTorch::ftorch )
 target_sources(benchmarker_cgdrag_torch PRIVATE benchmarker_utils.f90)
 
@@ -111,14 +111,14 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(forpy)
 message(STATUS "Building with the Fortran Forpy coupling")
 
-add_executable(benchmarker_forpy benchmarker_forpy.f90)
+add_executable(benchmarker_forpy benchmark_mima/benchmarker_forpy.f90)
 target_sources(benchmarker_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90)
-target_sources(benchmarker_forpy PRIVATE cg_drag_forpy.f90)
+target_sources(benchmarker_forpy PRIVATE benchmark_mima/cg_drag_forpy_mod.f90)
 target_link_libraries(benchmarker_forpy PRIVATE Python::Python)
 
 # Large stride test
 option(USETS "Use torchscript format for forpy test" OFF)
-add_executable(benchmarker_large_stride_forpy benchmarker_large_stride_forpy.f90)
+add_executable(benchmarker_large_stride_forpy benchmark_large_stride/benchmarker_large_stride_forpy.f90)
 target_sources(benchmarker_large_stride_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils.f90)
 target_link_libraries(benchmarker_large_stride_forpy PRIVATE Python::Python)
 
@@ -128,7 +128,7 @@ endif()
 
 # resnet test
 option(USETS "Use torchscript format for forpy test" OFF)
-add_executable(benchmarker_resnet_forpy benchmarker_resnet_forpy.f90)
+add_executable(benchmarker_resnet_forpy benchmark_resnet/benchmarker_resnet_forpy.f90)
 target_sources(benchmarker_resnet_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils.f90 precision_mod.f90)
 target_link_libraries(benchmarker_resnet_forpy PRIVATE Python::Python)
 
@@ -138,7 +138,7 @@ endif()
 
 # cgdrag test
 option(USETS "Use torchscript format for forpy test" OFF)
-add_executable(benchmarker_cgdrag_forpy benchmarker_cgdrag_forpy.f90)
+add_executable(benchmarker_cgdrag_forpy benchmark_cgdrag/benchmarker_cgdrag_forpy.f90)
 target_sources(benchmarker_cgdrag_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils.f90)
 target_link_libraries(benchmarker_cgdrag_forpy PRIVATE Python::Python)
 

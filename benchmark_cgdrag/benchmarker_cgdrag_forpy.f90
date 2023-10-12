@@ -63,10 +63,10 @@ program benchmark_cgdrag_test
   allocate( gwfcng_y_flattened(I_MAX*J_MAX, K_MAX) )
 
   ! Read in saved input (and output) values
-  open(10, file='../input_data/uuu.txt')
-  open(11, file='../input_data/vvv.txt')
-  open(12, file='../input_data/lat.txt')
-  open(13, file='../input_data/psfc.txt')
+  open(10, file='../cgdrag_model/uuu.txt')
+  open(11, file='../cgdrag_model/vvv.txt')
+  open(12, file='../cgdrag_model/lat.txt')
+  open(13, file='../cgdrag_model/psfc.txt')
   do i = 1, I_MAX
       do j = 1, J_MAX
           do k = 1, K_MAX

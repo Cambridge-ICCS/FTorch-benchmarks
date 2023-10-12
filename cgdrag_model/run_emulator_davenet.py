@@ -22,7 +22,7 @@ def initialize_ts(*args):
 
 
 # Initialize everything
-def initialize(path_weights_stats="../pytorch/network_wst.pkl"):
+def initialize(path_weights_stats="../cgdrag_model/network_wst.pkl"):
     """
     Initialize a WaveNet model and load weights.
 
