@@ -152,7 +152,7 @@ program benchmark_cgdrag_test
   deallocate(lat)
   deallocate(psfc)
   deallocate(durations)
-  allocate(gwfcng_x_ref)
-  allocate(gwfcng_y_ref)
+  deallocate(gwfcng_x_ref)
+  deallocate(gwfcng_y_ref)
 
 end program benchmark_cgdrag_test
