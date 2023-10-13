@@ -90,8 +90,6 @@ program benchmark_cgdrag_test
 
   read(10,*) gwfcng_x_ref
   read(20,*) gwfcng_y_ref
-  !write(*,*) "Reference read:"
-  !write (*,*) gwfcng_x_ref(1, 1, 1:10)
 
   close(10)
   close(20)
@@ -137,17 +135,9 @@ program benchmark_cgdrag_test
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     print *, trim(msg)
 
-    ! call assert(big_array, big_result/2., test_name=msg)
-
     ! Check error
-    if (maxval(abs((gwfcng_x - gwfcng_x_ref)/gwfcng_x_ref)) >= 1.0e-6) then
-      write(*,*) "AAARRGGHHHHH"
-      stop
-    endif
-    if (maxval(abs((gwfcng_y - gwfcng_y_ref)/gwfcng_y_ref)) >= 1.0e-6) then
-      write(*,*) "AAARRGGHHHHH"
-      stop
-    endif
+    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1e-5)
+    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1e-5)
 
   end do
 
@@ -162,5 +152,7 @@ program benchmark_cgdrag_test
   deallocate(lat)
   deallocate(psfc)
   deallocate(durations)
+  allocate(gwfcng_x_ref)
+  allocate(gwfcng_y_ref)
 
 end program benchmark_cgdrag_test

@@ -18,6 +18,7 @@ program benchmark_cgdrag_test
   real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
   real(kind=8), parameter :: RADIAN = 180.0 / PI
   real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
+  real(kind=8), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
   real(kind=8), dimension(:,:), allocatable :: lat, psfc
 
   real(kind=8), dimension(:,:), allocatable  :: uuu_flattened, vvv_flattened
@@ -67,6 +68,15 @@ program benchmark_cgdrag_test
   open(11, file='../cgdrag_model/vvv.txt')
   open(12, file='../cgdrag_model/lat.txt')
   open(13, file='../cgdrag_model/psfc.txt')
+
+  ! Read in reference data
+  allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
+  allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
+  open(14,file="../cgdrag_model/forpy_reference_x.txt")
+  open(15,file="../cgdrag_model/forpy_reference_y.txt")
+  read(14,*) gwfcng_x_ref
+  read(15,*) gwfcng_y_ref
+
   do i = 1, I_MAX
       do j = 1, J_MAX
           do k = 1, K_MAX
@@ -176,17 +186,11 @@ program benchmark_cgdrag_test
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     print *, trim(msg)
-    ! call assert(in_data, out_data/2., test_name=msg)
+
+    ! Check error
+    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1e-5)
+    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1e-5)
   end do
-
-  ! open(10,file="forpy_reference_x.txt")
-  ! open(20,file="forpy_reference_y.txt")
-
-  ! write(10,*) gwfcng_x
-  ! write(20,*) gwfcng_y
-
-  ! close(10)
-  ! close(20)
 
   call print_time_stats(durations)
 
@@ -203,5 +207,7 @@ program benchmark_cgdrag_test
   deallocate( gwfcng_x_flattened)
   deallocate( gwfcng_y_flattened)
   deallocate(durations)
+  deallocate(gwfcng_x_ref)
+  deallocate(gwfcng_y_ref)
 
 end program benchmark_cgdrag_test
