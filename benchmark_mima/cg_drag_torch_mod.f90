@@ -1,18 +1,14 @@
 module cg_drag_torch_mod
 
-use iso_fortran_env, only: error_unit
 ! Imports primitives used to interface with C
 use, intrinsic :: iso_c_binding, only: c_int64_t, c_float, c_char, c_null_char, c_ptr, c_loc
 ! Import library for interfacing with PyTorch
 use ftorch
 
-
-
-
 !-------------------------------------------------------------------
 
 implicit none
-private   error_mesg, RADIAN, NOTE, WARNING, FATAL
+private   RADIAN
 
 public    cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
 
@@ -26,7 +22,6 @@ public    cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
 
 type(torch_module) :: model
 
-integer, parameter :: NOTE=0, WARNING=1, FATAL=2
 real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
 real(kind=8), parameter :: RADIAN = 180.0 / PI
 
@@ -34,20 +29,6 @@ real(kind=8), parameter :: RADIAN = 180.0 / PI
 !--------------------------------------------------------------------
 
 contains
-
-! PRIVATE ROUTINES
- subroutine error_mesg (routine, message, level)
-  character(len=*), intent(in) :: routine, message
-  integer,          intent(in) :: level
-
-!  input:
-!      routine   name of the calling routine (character string)
-!      message   message written to output   (character string)
-!      level     set to NOTE, MESSAGE, or FATAL (integer)
-
-    write(error_unit, '(a,":", a)') routine, message
-
- end subroutine error_mesg
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !

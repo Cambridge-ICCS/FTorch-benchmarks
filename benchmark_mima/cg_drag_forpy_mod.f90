@@ -11,7 +11,7 @@ use forpy_mod,              only:  import_py, module_py, call_py, object, ndarra
 !-------------------------------------------------------------------
 
 implicit none
-private   error_mesg, RADIAN, NOTE, WARNING, FATAL
+private   error_mesg, RADIAN
 
 public    cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
 
@@ -33,7 +33,6 @@ type(list) :: paths
 type(object) :: model
 type(tuple) :: args
 type(str) :: py_model_dir
-integer, parameter :: NOTE=0, WARNING=1, FATAL=2
 real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
 real(kind=8), parameter :: RADIAN = 180.0 / PI
 
@@ -44,14 +43,12 @@ real(kind=8), parameter :: RADIAN = 180.0 / PI
 contains
 
 ! PRIVATE ROUTINES
- subroutine error_mesg (routine, message, level)
+ subroutine error_mesg (routine, message)
   character(len=*), intent(in) :: routine, message
-  integer,          intent(in) :: level
 
 !  input:
 !      routine   name of the calling routine (character string)
 !      message   message written to output   (character string)
-!      level     set to NOTE, MESSAGE, or FATAL (integer)
 
     write(error_unit, '(a,":", a)') routine, message
 
@@ -102,7 +99,7 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   ie = import_py(run_emulator, trim(model_name))
   if (ie .ne. 0) then
       call err_print
-      call error_mesg('cg_drag', 'forpy model not loaded', FATAL)
+      call error_mesg('cg_drag', 'forpy model not loaded')
   end if
 
   ! call initialize function from `run_emulator` python module
@@ -110,7 +107,7 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   ie = call_py(model, run_emulator, "initialize")
   if (ie .ne. 0) then
       call err_print
-      call error_mesg('cg_drag', 'call to `initialize` failed', FATAL)
+      call error_mesg('cg_drag', 'call to `initialize` failed')
   end if
 
 end subroutine cg_drag_ML_init
@@ -234,7 +231,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
   if (ie .ne. 0) then
       call err_print
-      call error_mesg('cg_drag_ML', 'inference x call failed', FATAL)
+      call error_mesg('cg_drag_ML', 'inference x call failed')
   end if
 
   ! Meridional
@@ -244,7 +241,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
   if (ie .ne. 0) then
       call err_print
-      call error_mesg('cg_drag_ML', 'inference y call failed', FATAL)
+      call error_mesg('cg_drag_ML', 'inference y call failed')
   end if
 
 
