@@ -80,8 +80,8 @@ subroutine assert_real(a, b, test_name, rtol_opt)
 
     character(len=*) :: test_name
     real(kind=8), intent(in), dimension(:,:,:) :: a, b
-    real, optional :: rtol_opt
-    real :: relative_error, rtol
+    real(kind=8), optional :: rtol_opt
+    real(kind=8) :: relative_error, rtol
 
     character(len=15) :: pass, fail
 

@@ -188,8 +188,8 @@ program benchmark_cgdrag_test
     print *, trim(msg)
 
     ! Check error
-    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1e-5)
-    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1e-5)
+    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.D-5)
+    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.D-5)
   end do
 
   call print_time_stats(durations)
