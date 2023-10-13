@@ -7,23 +7,26 @@ program benchmark_cgdrag_test
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
                           get_sys_path, ndarray_create_nocopy, str, str_create
+  use :: precision, only: dp
 
   implicit none
 
+  integer, parameter :: wp = dp
+
   integer :: i, j, k, ii, jj, kk, n
-  double precision :: start_time, end_time
-  double precision, allocatable :: durations(:)
+  real(dp) :: start_time, end_time
+  real(dp), allocatable :: durations(:)
 
   integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
-  real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
-  real(kind=8), parameter :: RADIAN = 180.0 / PI
-  real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
-  real(kind=8), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
-  real(kind=8), dimension(:,:), allocatable :: lat, psfc
+  real(wp), parameter :: PI = 4.0 * ATAN(1.0)
+  real(wp), parameter :: RADIAN = 180.0 / PI
+  real(wp), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
+  real(wp), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
+  real(wp), dimension(:,:), allocatable :: lat, psfc
 
-  real(kind=8), dimension(:,:), allocatable  :: uuu_flattened, vvv_flattened
-  real(kind=8), dimension(:,:), allocatable  :: lat_reshaped, psfc_reshaped
-  real(kind=8), dimension(:,:), allocatable  :: gwfcng_x_flattened, gwfcng_y_flattened
+  real(wp), dimension(:,:), allocatable  :: uuu_flattened, vvv_flattened
+  real(wp), dimension(:,:), allocatable  :: lat_reshaped, psfc_reshaped
+  real(wp), dimension(:,:), allocatable  :: gwfcng_x_flattened, gwfcng_y_flattened
 
   integer :: ie
   type(module_py) :: run_emulator
@@ -188,8 +191,8 @@ program benchmark_cgdrag_test
     print *, trim(msg)
 
     ! Check error
-    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.D-5)
-    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.D-5)
+    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-8_wp)
+    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-8_wp)
   end do
 
   call print_time_stats(durations)

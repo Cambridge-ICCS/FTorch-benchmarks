@@ -6,4 +6,7 @@ module precision
 
   implicit none
 
+  integer, parameter :: c_wp = c_sp
+  integer, public, parameter :: wp = sp
+
 end module precision

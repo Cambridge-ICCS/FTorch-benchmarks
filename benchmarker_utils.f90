@@ -1,6 +1,6 @@
 module utils
 
-  use, intrinsic :: iso_fortran_env, only : dp => real64
+  use :: precision, only: wp, dp
 
   implicit none
 
@@ -9,7 +9,7 @@ module utils
   end interface
 
   interface assert
-    module procedure assert_real, assert_real_2d, assert_real_3d
+    module procedure assert_real, assert_real_2d, assert_real_3d, assert_real_3d_dp
   end interface
 
 contains
@@ -19,9 +19,9 @@ subroutine assert_real(a, b, test_name, rtol_opt)
   implicit none
 
     character(len=*) :: test_name
-    real, intent(in) :: a, b
-    real, optional :: rtol_opt
-    real :: relative_error, rtol
+    real(wp), intent(in) :: a, b
+    real(wp), optional :: rtol_opt
+    real(wp) :: relative_error, rtol
 
     character(len=15) :: pass, fail
 
@@ -29,12 +29,12 @@ subroutine assert_real(a, b, test_name, rtol_opt)
     pass = char(27)//'[32m'//'PASSED'//char(27)//'[0m'
 
     if (.not. present(rtol_opt)) then
-      rtol = 1e-5
+      rtol = 1.0e-5_wp
     else
       rtol = rtol_opt
     end if
 
-    relative_error = abs(a/b - 1.)
+    relative_error = abs(a/b - 1.0_wp)
 
     if (relative_error > rtol) then
       write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') fail, trim(test_name), relative_error
@@ -45,13 +45,12 @@ subroutine assert_real(a, b, test_name, rtol_opt)
   end subroutine assert_real
 
   subroutine assert_real_2d(a, b, test_name, rtol_opt)
-
     implicit none
 
     character(len=*) :: test_name
-    real, intent(in), dimension(:,:) :: a, b
-    real, optional :: rtol_opt
-    real :: relative_error, rtol
+    real(wp), intent(in), dimension(:,:) :: a, b
+    real(wp), optional :: rtol_opt
+    real(wp) :: relative_error, rtol
 
     character(len=15) :: pass, fail
 
@@ -59,12 +58,12 @@ subroutine assert_real(a, b, test_name, rtol_opt)
     pass = char(27)//'[32m'//'PASSED'//char(27)//'[0m'
 
     if (.not. present(rtol_opt)) then
-      rtol = 1e-5
+      rtol = 1.0e-5_wp
     else
       rtol = rtol_opt
     end if
 
-    relative_error = maxval(abs(a/b - 1.))
+    relative_error = maxval(abs(a/b - 1.0_wp))
 
     if (relative_error > rtol) then
       write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') fail, trim(test_name), relative_error
@@ -79,9 +78,9 @@ subroutine assert_real(a, b, test_name, rtol_opt)
     implicit none
 
     character(len=*) :: test_name
-    real(kind=8), intent(in), dimension(:,:,:) :: a, b
-    real(kind=8), optional :: rtol_opt
-    real(kind=8) :: relative_error, rtol
+    real(wp), intent(in), dimension(:,:,:) :: a, b
+    real(wp) :: relative_error, rtol
+    real(wp), optional :: rtol_opt
 
     character(len=15) :: pass, fail
 
@@ -89,12 +88,12 @@ subroutine assert_real(a, b, test_name, rtol_opt)
     pass = char(27)//'[32m'//'PASSED'//char(27)//'[0m'
 
     if (.not. present(rtol_opt)) then
-      rtol = 1e-5
+      rtol = 1.0e-5_wp
     else
       rtol = rtol_opt
     end if
 
-    relative_error = maxval(abs(a/b - 1.))
+    relative_error = maxval(abs(a/b - 1.0_wp))
 
     if (relative_error > rtol) then
       write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') fail, trim(test_name), relative_error
@@ -104,20 +103,50 @@ subroutine assert_real(a, b, test_name, rtol_opt)
 
   end subroutine assert_real_3d
 
+  subroutine assert_real_3d_dp(a, b, test_name, rtol_opt)
+
+    implicit none
+
+    character(len=*) :: test_name
+    real(dp), intent(in), dimension(:,:,:) :: a, b
+    real(dp) :: relative_error, rtol
+    real(dp), optional :: rtol_opt
+
+    character(len=15) :: pass, fail
+
+    fail = char(27)//'[31m'//'FAILED'//char(27)//'[0m'
+    pass = char(27)//'[32m'//'PASSED'//char(27)//'[0m'
+
+    if (.not. present(rtol_opt)) then
+      rtol = 1.0e-5_dp
+    else
+      rtol = rtol_opt
+    end if
+
+    relative_error = maxval(abs(a/b - 1.0_dp))
+
+    if (relative_error > rtol) then
+      write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') fail, trim(test_name), relative_error
+    else
+      write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') pass, trim(test_name), relative_error
+    end if
+
+  end subroutine assert_real_3d_dp
+
   subroutine print_time_stats_real(durations)
 
     implicit none
 
-    real, intent(in) :: durations(:)
+    real(wp), intent(in) :: durations(:)
+    real(wp) :: mean, var, stddev
     integer :: i, n
-    real :: mean, var, stddev
 
     ! skip the first element because this is always slower
     n = size(durations(2:), 1)
 
     mean = sum(durations(2:)) / n
 
-    var = 0.
+    var = 0.0_wp
 
     do i = 2, n
       var = var + ( (durations(i) - mean)**2 / (n - 1) ) ! (n - 1) here is for corrected sample standard deviation
@@ -137,19 +166,19 @@ subroutine assert_real(a, b, test_name, rtol_opt)
 
     implicit none
 
-    double precision, intent(in) :: durations(:)
+    real(dp), intent(in) :: durations(:)
+    real(dp) :: mean, var, stddev
     integer :: i, n
-    double precision :: mean, var, stddev
 
     ! skip the first element because this is always slower
     n = size(durations(2:), 1)
 
     mean = sum(durations(2:)) / n
 
-    var = 0._dp
+    var = 0.0_dp
 
     do i = 2, n
-      var = var + ( (durations(i) - mean)**2._dp / (n - 1._dp) ) ! (n - 1) here is for corrected sample standard deviation
+      var = var + ( (durations(i) - mean)**2._dp / (n - 1.0_dp) ) ! (n - 1) here is for corrected sample standard deviation
     end do
 
     stddev = sqrt(var)
@@ -166,7 +195,7 @@ subroutine assert_real(a, b, test_name, rtol_opt)
 
     implicit none
 
-    real, intent(in) :: array(:,:)
+    real(wp), intent(in) :: array(:,:)
     integer :: i
 
     do i = lbound(array,1), ubound(array,1)

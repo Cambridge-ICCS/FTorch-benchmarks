@@ -4,20 +4,23 @@ program benchmark_cgdrag_test
   use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert, setup, print_time_stats
   use :: ftorch
+  use :: precision, only: dp
 
   implicit none
 
+  integer, parameter :: wp = dp
+
   integer :: i, j, k, ii, jj, kk, n
-  double precision :: start_time, end_time
-  double precision, allocatable :: durations(:)
+  real(dp) :: start_time, end_time
+  real(dp), allocatable :: durations(:)
 
   integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
-  real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
-  real(kind=8), parameter :: RADIAN = 180.0 / PI
+  real(wp), parameter :: PI = 4.0 * ATAN(1.0)
+  real(wp), parameter :: RADIAN = 180.0 / PI
 
-  real(kind=8), dimension(:,:,:), allocatable, target :: uuu, vvv, gwfcng_x, gwfcng_y
-  real(kind=8), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
-  real(kind=8), dimension(:,:), allocatable, target :: lat, psfc
+  real(wp), dimension(:,:,:), allocatable, target :: uuu, vvv, gwfcng_x, gwfcng_y
+  real(wp), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
+  real(wp), dimension(:,:), allocatable, target :: lat, psfc
   integer(c_int), parameter :: n_inputs = 3
 
   ! Shape is the shape of the tensor we want to go into the torch
@@ -32,8 +35,8 @@ program benchmark_cgdrag_test
   integer(c_int64_t) :: shape_out(dims_out) = [I_MAX*J_MAX, K_MAX]
   integer(c_int) :: stride_out(dims_out) = [1,2]
 
-  real(kind=8), dimension(:,:), allocatable, target :: uuu_flattened, vvv_flattened
-  real(kind=8), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
+  real(wp), dimension(:,:), allocatable, target :: uuu_flattened, vvv_flattened
+  real(wp), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
 
   character(len=:), allocatable :: model_dir, model_name
   character(len=128) :: msg
@@ -136,8 +139,8 @@ program benchmark_cgdrag_test
     print *, trim(msg)
 
     ! Check error
-    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.D-5)
-    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.D-5)
+    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-8_wp)
+    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-8_wp)
 
   end do
 

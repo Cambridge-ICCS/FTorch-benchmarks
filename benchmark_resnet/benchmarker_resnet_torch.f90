@@ -5,14 +5,12 @@ program benchmark_resnet_test
   use :: utils, only : assert, setup, print_time_stats
   ! Import our library for interfacing with PyTorch
   use :: ftorch
-  use :: precision, only: c_sp, c_dp, sp, dp
+  ! Define working precision for C primitives and Fortran reals
+  ! Precision must match `wp` in resnet18.py and `wp_torch` in pt2ts.py
+  use :: precision, only: c_wp, wp, dp
 
   implicit none
 
-  ! Define working precision for C primitives
-  ! Precision must match `wp` in resnet18.py and `wp_torch` in pt2ts.py
-  integer, parameter :: c_wp = c_sp
-  integer, parameter :: wp = sp
   integer, parameter :: torch_wp = torch_kFloat32
 
   call main()
@@ -22,8 +20,8 @@ program benchmark_resnet_test
     subroutine main()
 
     integer :: i, ii, n
-    double precision :: start_time, end_time
-    double precision, allocatable :: durations(:)
+    real(dp) :: start_time, end_time
+    real(dp), allocatable :: durations(:)
 
     real(c_wp), dimension(:,:,:,:), allocatable, target :: in_data
     integer(c_int), parameter :: n_inputs = 1
@@ -95,7 +93,7 @@ program benchmark_resnet_test
       probability = maxval(probabilities)
 
       ! Check top probability matches expected value
-      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1e-5)
+      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
 
       ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
       write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"

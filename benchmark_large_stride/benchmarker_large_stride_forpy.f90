@@ -7,13 +7,14 @@ program benchmark_stride_test
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
                           get_sys_path, ndarray_create_nocopy, str, str_create
+  use :: precision, only: wp, dp
 
   implicit none
 
   integer :: i, n
-  double precision :: start_time, end_time
-  double precision, allocatable :: durations(:)
-  real, dimension(:,:), allocatable, asynchronous :: big_array, big_result
+  real(dp) :: start_time, end_time
+  real(dp), allocatable :: durations(:)
+  real(wp), dimension(:,:), allocatable, asynchronous :: big_array, big_result
 
   integer :: ie
   type(module_py) :: run_emulator
