@@ -6,6 +6,7 @@ model architecture, and `network_wst.pkl` which contains the model weights.
 """
 from torch import load, device, no_grad, reshape, zeros, tensor, float64, jit
 import arch_davenet as m
+from typing import Optional
 
 
 # Initialize everything using torchscript
@@ -22,17 +23,21 @@ def initialize_ts(*args):
 
 
 # Initialize everything
-def initialize(path_weights_stats="../pytorch/network_wst.pkl"):
+def initialize(
+    path_weights_stats: Optional[str ] = "../pytorch/network_wst.pkl",
+    device_str: Optional[str] = "cpu",
+):
     """
     Initialize a WaveNet model and load weights.
 
     Parameters
     __________
-    path_weights_stats : pickled object that contains weights and statistics (means and stds).
+    path_weights_stats : str
+        Path to a pickled object that contains weights and statistics (means and stds).
+    device_str : str
+        Device to load model. Must be either "cpu" or "cuda".
 
     """
-
-    device_str = "cpu"
     checkpoint = load(path_weights_stats, map_location=device(device_str))
     model = m.WaveNet(checkpoint).to(device_str)
 

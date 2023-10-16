@@ -44,7 +44,7 @@ program benchmark_stride_test
     start_time = omp_get_wtime()
 
     ! Create input and output tensors for the model.
-    input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_kFloat32, torch_kCPU, stride_2d)
+    input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_kFloat32, torch_kCUDA, stride_2d)
     result_tensor = torch_tensor_from_blob(c_loc(big_result), 2, shape_2d, torch_kFloat32, torch_kCPU, stride_2d)
 
     call torch_module_forward(model, input_array, n_inputs, result_tensor)

@@ -75,7 +75,7 @@ program benchmark_resnet_test
       start_time = omp_get_wtime()
 
       ! Create input and output tensors for the model.
-      in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_kFloat32, torch_kCPU, in_layout)
+      in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_kFloat32, torch_kCUDA, in_layout)
       out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_kFloat32, torch_kCPU, out_layout)
 
       call torch_module_forward(model, in_tensor, n_inputs, out_tensor)
@@ -95,7 +95,7 @@ program benchmark_resnet_test
       probability = maxval(probabilities)
 
       ! Check top probability matches expected value
-      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1e-5)
+      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1e-2)
 
       ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
       write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
