@@ -93,7 +93,7 @@ NSIZE=128  #size of N x N tensor
 ```
 
 The preprocessor macro `USETS` can be enabled by passing CMake the option `-D USETS=1`. This will enable the forpy test to use a
-pre-saved torchscript `.pth` file. If this is omitted then forpy will generate a model in the python runtime environment.
+pre-saved torchscript `.pt` file. If this is omitted then forpy will generate a model in the python runtime environment.
 
 
 ## Results
