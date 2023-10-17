@@ -1,6 +1,6 @@
 program benchmark_resnet_test
 
-  use, intrinsic :: iso_c_binding, only: c_int64_t, c_null_char, c_loc
+  use, intrinsic :: iso_c_binding, only: c_int64_t, c_loc
   use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert, setup, print_time_stats
   ! Import our library for interfacing with PyTorch
@@ -63,7 +63,7 @@ program benchmark_resnet_test
     allocate(durations(ntimes))
     allocate(probabilities(out_shape(1), out_shape(2)))
 
-    model = torch_module_load(model_dir//"/"//model_name//C_NULL_CHAR)
+    model = torch_module_load(model_dir//"/"//model_name)
 
     ! Initialise data - previously in loop, but not modified?
     call load_data(filename, tensor_length, in_data)

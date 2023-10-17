@@ -1,7 +1,5 @@
 program benchmarker
-use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
-                                          stdout=>output_unit, &
-                                          stderr=>error_unit
+use, intrinsic :: iso_fortran_env, only : stderr=>error_unit
 use cg_drag_torch_mod, only: cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
 implicit none
 

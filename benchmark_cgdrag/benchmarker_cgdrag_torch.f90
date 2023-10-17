@@ -77,7 +77,7 @@ program benchmark_cgdrag_test
 
   lat = lat*RADIAN
 
-  model = torch_module_load(model_dir//"/"//model_name//c_null_char)
+  model = torch_module_load(model_dir//"/"//model_name)
 
   ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
   allocate( uuu_flattened(I_MAX*J_MAX, K_MAX) )

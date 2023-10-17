@@ -1,7 +1,7 @@
 module cg_drag_torch_mod
 
 ! Imports primitives used to interface with C
-use, intrinsic :: iso_c_binding, only: c_int64_t, c_float, c_char, c_null_char, c_ptr, c_loc
+use, intrinsic :: iso_c_binding, only: c_int64_t, c_loc
 ! Import library for interfacing with PyTorch
 use ftorch
 
@@ -61,7 +61,7 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   !-----------------------------------------------------------------
 
   ! Initialise the ML model to be used
-  model = torch_module_load(trim(model_dir)//"/"//trim(model_name)//c_null_char)
+  model = torch_module_load(trim(model_dir)//"/"//trim(model_name))
 
 end subroutine cg_drag_ML_init
 
