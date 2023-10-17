@@ -87,8 +87,8 @@ make
 
 N=10      #number of times to run forward model
 NSIZE=128  #size of N x N tensor
-./benchmarker_large_stride_torch ../large_stride_model saved_model.pth $N $NSIZE
-./benchmarker_large_stride_forpy ../large_stride_model run_emulator_stride $N $NSIZE
+./benchmarker_large_stride_torch ../large_stride_model saved_large_stride_model_cpu.pt $N $NSIZE
+./benchmarker_large_stride_forpy ../large_stride_model run_emulator_stride             $N $NSIZE
 
 ```
 
@@ -106,7 +106,7 @@ For the synthetic test they appear to show that the forpy and directly-coupled a
 ### Directly coupled approach
 ```
  ====== DIRECT COUPLED ======
-Running model: ../large_stride_model/saved_model.pth 10 times.
+Running model: ../large_stride_model/saved_large_stride_model.pt 10 times.
 PASSED :: [check iteration        1 (     3.237 s)] maximum relative error =  0.0000E+00
 PASSED :: [check iteration        2 (     2.023 s)] maximum relative error =  0.0000E+00
 PASSED :: [check iteration        3 (     2.027 s)] maximum relative error =  0.0000E+00

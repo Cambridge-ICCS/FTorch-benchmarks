@@ -108,7 +108,7 @@ program benchmark_cgdrag_test
   print *, "load torchscript model"
   ! load torchscript saved model
   ie = tuple_create(args,1)
-  ie = str_create(filename, trim(model_dir//'/saved_model.pth'))
+  ie = str_create(filename, trim(model_dir//'/saved_cgdrag_model_cpu.pt'))
   ie = args%setitem(0, filename)
   ie = call_py(model, run_emulator, "initialize_ts", args)
   call args%destroy
