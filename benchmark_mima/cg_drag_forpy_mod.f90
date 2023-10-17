@@ -7,10 +7,15 @@ use forpy_mod,              only:  import_py, module_py, call_py, object, ndarra
                                    ndarray_create, cast, print_py, dict, dict_create, err_print, &
                                    call_py_noret, list, get_sys_path, ndarray_create_nocopy, &
                                    ndarray_create_empty, ndarray_create_zeros, str, str_create
+use :: precision, only: dp
 
 !-------------------------------------------------------------------
 
 implicit none
+
+! Use double precision, rather than wp defined in precision module
+integer, parameter :: wp = dp
+
 private   error_mesg, RADIAN
 
 public    cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
@@ -33,8 +38,8 @@ type(list) :: paths
 type(object) :: model
 type(tuple) :: args
 type(str) :: py_model_dir
-real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
-real(kind=8), parameter :: RADIAN = 180.0 / PI
+real(wp), parameter :: PI = 4.0 * ATAN(1.0)
+real(wp), parameter :: RADIAN = 180.0 / PI
 
 
 !--------------------------------------------------------------------
@@ -163,10 +168,10 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !-----------------------------------------------------------------
 
-  real(kind=8), dimension(:,:,:), intent(in)    :: uuu, vvv
-  real(kind=8), dimension(:,:),   intent(in)    :: lat, psfc
+  real(wp), dimension(:,:,:), intent(in)    :: uuu, vvv
+  real(wp), dimension(:,:),   intent(in)    :: lat, psfc
 
-  real(kind=8), dimension(:,:,:), intent(out)   :: gwfcng_x, gwfcng_y
+  real(wp), dimension(:,:,:), intent(out)   :: gwfcng_x, gwfcng_y
 
   !-----------------------------------------------------------------
 
@@ -177,9 +182,9 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !---------------------------------------------------------------------
 
-  real(kind=8), dimension(:,:), allocatable, asynchronous  :: uuu_flattened, vvv_flattened
-  real(kind=8), dimension(:,:), allocatable, asynchronous    :: lat_reshaped, psfc_reshaped
-  real(kind=8), dimension(:,:), allocatable, asynchronous  :: gwfcng_x_flattened, gwfcng_y_flattened
+  real(wp), dimension(:,:), allocatable, asynchronous  :: uuu_flattened, vvv_flattened
+  real(wp), dimension(:,:), allocatable, asynchronous    :: lat_reshaped, psfc_reshaped
+  real(wp), dimension(:,:), allocatable, asynchronous  :: gwfcng_x_flattened, gwfcng_y_flattened
 
   integer :: imax, jmax, kmax, j
 

@@ -4,10 +4,15 @@ module cg_drag_torch_mod
 use, intrinsic :: iso_c_binding, only: c_int64_t, c_loc
 ! Import library for interfacing with PyTorch
 use ftorch
+use :: precision, only: dp
 
 !-------------------------------------------------------------------
 
 implicit none
+
+! Use double precision, rather than wp defined in precision module
+integer, parameter :: wp = dp
+
 private   RADIAN
 
 public    cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
@@ -22,8 +27,8 @@ public    cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
 
 type(torch_module) :: model
 
-real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
-real(kind=8), parameter :: RADIAN = 180.0 / PI
+real(wp), parameter :: PI = 4.0 * ATAN(1.0)
+real(wp), parameter :: RADIAN = 180.0 / PI
 
 !--------------------------------------------------------------------
 !--------------------------------------------------------------------
@@ -111,11 +116,11 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !-----------------------------------------------------------------
 
-  real(kind=8), dimension(:,:,:), target, intent(in)    :: uuu, vvv
-  real(kind=8), dimension(:,:), target,   intent(in)    :: psfc
-  real(kind=8), dimension(:,:), target                  :: lat
+  real(wp), dimension(:,:,:), target, intent(in)    :: uuu, vvv
+  real(wp), dimension(:,:), target,   intent(in)    :: psfc
+  real(wp), dimension(:,:), target                  :: lat
 
-  real(kind=8), dimension(:,:,:), intent(out), target   :: gwfcng_x, gwfcng_y
+  real(wp), dimension(:,:,:), intent(out), target   :: gwfcng_x, gwfcng_y
 
   !-----------------------------------------------------------------
 

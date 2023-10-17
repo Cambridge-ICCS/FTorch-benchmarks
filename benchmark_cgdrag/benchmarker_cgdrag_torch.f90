@@ -8,6 +8,7 @@ program benchmark_cgdrag_test
 
   implicit none
 
+  ! Use double precision, rather than wp defined in precision module
   integer, parameter :: wp = dp
 
   integer :: i, j, k, ii, jj, kk, n
