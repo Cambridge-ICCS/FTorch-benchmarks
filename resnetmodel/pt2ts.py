@@ -90,6 +90,10 @@ if __name__ == "__main__":
     # This may have been done by the user already, so just make sure here.
     trained_model.eval()
 
+    # FPTLIB-TODO
+    # Set the name of the file you want to save the torchscript model to:
+    saved_ts_filename = "../resnetmodel/saved_resnet18_model_cpu.pt"
+
     # =====================================================
     # Prepare dummy input and check model runs
     # =====================================================
@@ -100,11 +104,12 @@ if __name__ == "__main__":
     trained_model_dummy_input = torch.ones(1, 3, 224, 224)
 
     # FPTLIB-TODO
-    # Uncomment the following lines to save for inference on GPU (rather than CPU):
+    # Uncomment the following 5 lines to save for inference on GPU (rather than CPU):
     device = torch.device('cuda')
     trained_model = trained_model.to(device)
     trained_model.eval()
     trained_model_dummy_input = trained_model_dummy_input.to(device)
+    saved_ts_filename = "../resnetmodel/saved_resnet18_model_gpu.pt"
 
     # FPTLIB-TODO
     # Run model for dummy inputs
@@ -116,10 +121,6 @@ if __name__ == "__main__":
     # =====================================================
     # Save model
     # =====================================================
-
-    # FPTLIB-TODO
-    # Set the name of the file you want to save the torchscript model to:
-    saved_ts_filename = "../resnetmodel/saved_resnet18_model_gpu.pt"
 
     # FPTLIB-TODO
     # Save the pytorch model using either scripting (recommended where possible) or tracing
