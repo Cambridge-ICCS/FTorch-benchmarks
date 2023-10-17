@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # FPTLIB-TODO
     # Load a pre-trained PyTorch model
     # Insert code here to load your model from file as `trained_model`:
-    trained_model = red.initialize(device_str="cuda")
+    trained_model = red.initialize(device_str="cpu")
 
     # Switch-off some specific layers/parts of the model that behave
     # differently during training and inference.
@@ -90,13 +90,13 @@ if __name__ == "__main__":
 
     # FPTLIB-TODO
     # If you want to save for inference on GPU uncomment the following 7 lines:
-    device = torch.device('cuda')
-    trained_model = trained_model.to(device)
-    trained_model.eval()
-    trained_model_dummy_input_u = trained_model_dummy_input_u.to(device)
-    trained_model_dummy_input_l = trained_model_dummy_input_l.to(device)
-    trained_model_dummy_input_p = trained_model_dummy_input_p.to(device)
-    saved_ts_filename = "../pytorch/saved_cgdrag_model_gpu.pt"
+    # device = torch.device('cuda')
+    # trained_model = trained_model.to(device)
+    # trained_model.eval()
+    # trained_model_dummy_input_u = trained_model_dummy_input_u.to(device)
+    # trained_model_dummy_input_l = trained_model_dummy_input_l.to(device)
+    # trained_model_dummy_input_p = trained_model_dummy_input_p.to(device)
+    # saved_ts_filename = "../pytorch/saved_cgdrag_model_gpu.pt"
 
     # Run model over dummy input
     # If something isn't working This will generate an error

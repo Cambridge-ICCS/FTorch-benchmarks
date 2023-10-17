@@ -88,11 +88,11 @@ if __name__ == "__main__":
 
     # FPTLIB-TODO
     # If you want to save for inference on GPU uncomment the following 5 lines:
-    device = torch.device('cuda')
-    trained_model = trained_model.to(device)
-    trained_model.eval()
-    trained_model_dummy_input = trained_model_dummy_input.to(device)
-    saved_ts_filename = "../stridemodel/saved_large_stride_model_gpu.pt"
+    # device = torch.device('cuda')
+    # trained_model = trained_model.to(device)
+    # trained_model.eval()
+    # trained_model_dummy_input = trained_model_dummy_input.to(device)
+    # saved_ts_filename = "../stridemodel/saved_large_stride_model_gpu.pt"
 
     # Run model over dummy input
     # If something isn't working This will generate an error
