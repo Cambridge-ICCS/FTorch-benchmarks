@@ -38,7 +38,8 @@ program benchmark_resnet_test
 
     character(len=:), allocatable :: model_dir, model_name
     character(len=128) :: msg
-    integer :: ntimes
+    integer :: ntimes, input_device
+    logical :: use_cuda = .false.
 
     type(torch_module) :: model
     type(torch_tensor), dimension(1) :: in_tensor
@@ -58,7 +59,7 @@ program benchmark_resnet_test
 
     print *, "====== DIRECT COUPLED ======"
 
-    call setup(model_dir, model_name, ntimes, n)
+    call setup(model_dir, model_name, ntimes, n, use_cuda)
 
     allocate(in_data(in_shape(1), in_shape(2), in_shape(3), in_shape(4)))
     allocate(out_data(out_shape(1), out_shape(2)))
@@ -70,12 +71,18 @@ program benchmark_resnet_test
     ! Initialise data - previously in loop, but not modified?
     call load_data(filename, tensor_length, in_data)
 
+    if (use_cuda) then
+        input_device = torch_kCUDA
+      else
+        input_device = torch_kCPU
+    end if
+
     do i = 1, ntimes
 
       start_time = omp_get_wtime()
 
       ! Create input and output tensors for the model.
-      in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_kFloat32, torch_kCUDA, in_layout)
+      in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_kFloat32, input_device, in_layout)
       out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_kFloat32, torch_kCPU, out_layout)
 
       call torch_module_forward(model, in_tensor, n_inputs, out_tensor)

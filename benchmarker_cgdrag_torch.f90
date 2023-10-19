@@ -37,7 +37,8 @@ program benchmark_cgdrag_test
 
   character(len=:), allocatable :: model_dir, model_name
   character(len=128) :: msg
-  integer :: ntimes
+  integer :: ntimes, input_device
+  logical :: use_cuda = .false.
 
   type(torch_module) :: model
   type(torch_tensor), dimension(n_inputs) :: in_tensors
@@ -45,7 +46,13 @@ program benchmark_cgdrag_test
 
   print *, "====== DIRECT COUPLED ======"
 
-  call setup(model_dir, model_name, ntimes, n)
+  call setup(model_dir, model_name, ntimes, n, use_cuda)
+
+  if (use_cuda) then
+    input_device = torch_kCUDA
+  else
+    input_device = torch_kCPU
+  end if
 
   allocate(durations(ntimes))
 
@@ -107,17 +114,17 @@ program benchmark_cgdrag_test
 
 
     ! Create input and output tensors for the model.
-    in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCUDA, stride_1D)
-    in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCUDA, stride_1D)
+    in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_kFloat64, input_device, stride_1D)
+    in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_kFloat64, input_device, stride_1D)
     
     ! Zonal
-    in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCUDA, stride_2D)
+    in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_kFloat64, input_device, stride_2D)
     gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
     ! Run model and Infer
     call torch_module_forward(model, in_tensors, n_inputs, gwfcng_x_tensor)
     
     ! Meridional
-    in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCUDA, stride_2D)
+    in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_kFloat64, input_device, stride_2D)
     gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
 
     ! Run model and Infer
