@@ -6,7 +6,6 @@ model architecture, and `network_wst.pkl` which contains the model weights.
 """
 from torch import load, device, no_grad, reshape, zeros, tensor, float64, jit
 import arch_davenet as m
-from typing import Optional
 
 
 # Initialize everything using torchscript
@@ -16,7 +15,7 @@ def initialize_ts(*args):
 
     """
 
-    filename, = args
+    (filename,) = args
     model = jit.load(filename)
 
     return model
@@ -24,8 +23,8 @@ def initialize_ts(*args):
 
 # Initialize everything
 def initialize(
-    path_weights_stats: Optional[str ] = "../pytorch/network_wst.pkl",
-    device_str: Optional[str] = "cpu",
+    path_weights_stats: str = "../pytorch/network_wst.pkl",
+    device_str: str = "cpu",
 ):
     """
     Initialize a WaveNet model and load weights.

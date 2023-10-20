@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     # FPTLIB-TODO
     # Set the name of the file you want to save the torchscript model to
-    saved_ts_filename = "../stridemodel/saved_large_stride_model_cpu.pt"
+    saved_ts_filename = "saved_model.pth"
 
     # FPTLIB-TODO
     # If you want to save for inference on GPU uncomment the following 5 lines:
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     # trained_model = trained_model.to(device)
     # trained_model.eval()
     # trained_model_dummy_input = trained_model_dummy_input.to(device)
-    # saved_ts_filename = "../stridemodel/saved_large_stride_model_gpu.pt"
+    # saved_ts_filename = "saved_large_stride_model_gpu.pt"
 
     # Run model over dummy input
     # If something isn't working This will generate an error

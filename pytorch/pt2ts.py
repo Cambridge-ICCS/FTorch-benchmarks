@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     # FPTLIB-TODO
     # Set the name of the file you want to save the torchscript model to
-    saved_ts_filename = "../pytorch/saved_cgdrag_model_cpu.pt"
+    saved_ts_filename = "saved_model.pth"
 
     # FPTLIB-TODO
     # If you want to save for inference on GPU uncomment the following 7 lines:
@@ -100,10 +100,11 @@ if __name__ == "__main__":
 
     # Run model over dummy input
     # If something isn't working This will generate an error
-    trained_model_dummy_output = trained_model(trained_model_dummy_input_u,
-                                               trained_model_dummy_input_l,
-                                               trained_model_dummy_input_p,
-                                               )
+    trained_model_dummy_output = trained_model(
+        trained_model_dummy_input_u,
+        trained_model_dummy_input_l,
+        trained_model_dummy_input_p,
+    )
 
     # FPTLIB-TODO
     # Save the pytorch model using either scripting (recommended where possible) or tracing
@@ -122,11 +123,13 @@ if __name__ == "__main__":
     testing_input_l = 2.0 * trained_model_dummy_input_l
     testing_input_p = 2.0 * trained_model_dummy_input_p
 
-    testing_input_u = testing_input_u.to(device)
-    testing_input_l = testing_input_l.to(device)
-    testing_input_p = testing_input_p.to(device)
+    # testing_input_u = testing_input_u.to(device)
+    # testing_input_l = testing_input_l.to(device)
+    # testing_input_p = testing_input_p.to(device)
 
-    trained_model_testing_output = trained_model(testing_input_u, testing_input_l, testing_input_p)
+    trained_model_testing_output = trained_model(
+        testing_input_u, testing_input_l, testing_input_p
+    )
     ts_model = load_torchscript(filename=saved_ts_filename)
     ts_model_output = ts_model(testing_input_u, testing_input_l, testing_input_p)
 

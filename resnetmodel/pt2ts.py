@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
     # FPTLIB-TODO
     # Set the name of the file you want to save the torchscript model to:
-    saved_ts_filename = "../resnetmodel/saved_resnet18_model_cpu.pt"
+    saved_ts_filename = "saved_resnet18_model_cpu.pt"
 
     # =====================================================
     # Prepare dummy input and check model runs
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     # trained_model = trained_model.to(device)
     # trained_model.eval()
     # trained_model_dummy_input = trained_model_dummy_input.to(device)
-    # saved_ts_filename = "../resnetmodel/saved_resnet18_model_gpu.pt"
+    # saved_ts_filename = "saved_resnet18_model_gpu.pt"
 
     # FPTLIB-TODO
     # Run model for dummy inputs

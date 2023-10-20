@@ -72,9 +72,9 @@ program benchmark_resnet_test
     call load_data(filename, tensor_length, in_data)
 
     if (use_cuda) then
-        input_device = torch_kCUDA
-      else
-        input_device = torch_kCPU
+      input_device = torch_kCUDA
+    else
+      input_device = torch_kCPU
     end if
 
     do i = 1, ntimes
