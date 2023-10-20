@@ -6,11 +6,10 @@ moderate _slowdown_ when using our Fortran to PyTorch direct coupling library.
 This repository contains code to investigate that surprising result.
 
 ## Requirements
-Follow the build instructions below to set up the following requirements:
 
 1) [FTorch](https://github.com/Cambridge-ICCS/FTorch) repository.
 2) CMake >= 3.14
-3) Python
+3) Python (with development package)
 4) a virtual environment with PyTorch and NumPy installed
 
 ## Build instructions
@@ -23,7 +22,7 @@ mkdir build
 cd build
 cmake ..
 ```
-You may need to specify the path to PyTorch with the option `-DCMAKE_PREFIX-PATH=<full-path-to-PyTorch>`. 
+You may need to specify the path to PyTorch with the option `-DCMAKE_PREFIX_PATH=<full-path-to-PyTorch>`.
 
 You may also need to specify the path to the CMake library files by using the option `-DFTorch_DIR=<full-path-to-cmake-lib-files>/lib/cmake/`. This is the location you specified when installing FTorch, if you used `-DCMAKE_INSTALL_PREFIX`. The default location is /usr/local. 
 
