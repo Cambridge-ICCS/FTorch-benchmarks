@@ -65,7 +65,9 @@ class WaveNet(nn.Module):
         self.stds = checkpoint["stds"]
         del checkpoint
 
-    def forward(self, wind: torch.Tensor, lat: torch.Tensor, pressure: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, wind: torch.Tensor, lat: torch.Tensor, pressure: torch.Tensor
+    ) -> torch.Tensor:
         """
         Apply the network to a `Tensor` of input features.
 
@@ -86,7 +88,7 @@ class WaveNet(nn.Module):
         """
 
         Z, levels = self.shared(torch.cat((wind, lat, pressure), 1)), []
-        
+
         for branch in self.branches:
             levels.append(branch(Z).squeeze())
         Y = torch.vstack(levels).T
