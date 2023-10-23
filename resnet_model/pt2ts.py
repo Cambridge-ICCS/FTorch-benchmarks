@@ -57,7 +57,7 @@ def trace_to_torchscript(
     print("done.")
 
 
-def load_torchscript(filename: Optional[str] = "saved_model.pt") -> torch.nn.Module:
+def load_torchscript(filename: Optional[str] = "saved_resnet18_model_cpu.pt") -> torch.nn.Module:
     """
     Load a TorchScript from file.
 
