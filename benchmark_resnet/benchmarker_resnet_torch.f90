@@ -1,18 +1,16 @@
 program benchmark_resnet_test
 
-  use, intrinsic :: iso_c_binding, only: c_int64_t, c_null_char, c_loc
+  use, intrinsic :: iso_c_binding, only: c_int64_t, c_loc
   use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert, setup, print_time_stats
   ! Import our library for interfacing with PyTorch
   use :: ftorch
-  use :: precision, only: c_sp, c_dp, sp, dp
+  ! Define working precision for C primitives and Fortran reals
+  ! Precision must match `wp` in resnet18.py and `wp_torch` in pt2ts.py
+  use :: precision, only: c_wp, wp, dp
 
   implicit none
 
-  ! Define working precision for C primitives
-  ! Precision must match `wp` in resnet18.py and `wp_torch` in pt2ts.py
-  integer, parameter :: c_wp = c_sp
-  integer, parameter :: wp = sp
   integer, parameter :: torch_wp = torch_kFloat32
 
   call main()
@@ -22,8 +20,8 @@ program benchmark_resnet_test
     subroutine main()
 
     integer :: i, ii, n
-    double precision :: start_time, end_time
-    double precision, allocatable :: durations(:)
+    real(dp) :: start_time, end_time
+    real(dp), allocatable :: durations(:)
 
     real(c_wp), dimension(:,:,:,:), allocatable, target :: in_data
     integer(c_int), parameter :: n_inputs = 1
@@ -46,7 +44,7 @@ program benchmark_resnet_test
     type(torch_tensor) :: out_tensor
 
     ! Binary file containing input tensor
-    character(len=*), parameter :: filename = '../resnetmodel/image_tensor.dat'
+    character(len=*), parameter :: filename = '../resnet_model/image_tensor.dat'
 
     ! Length of tensor and number of categories
     integer, parameter :: tensor_length = 150528
@@ -66,7 +64,7 @@ program benchmark_resnet_test
     allocate(durations(ntimes))
     allocate(probabilities(out_shape(1), out_shape(2)))
 
-    model = torch_module_load(model_dir//"/"//model_name//C_NULL_CHAR)
+    model = torch_module_load(model_dir//"/"//model_name)
 
     ! Initialise data - previously in loop, but not modified?
     call load_data(filename, tensor_length, in_data)
@@ -102,7 +100,7 @@ program benchmark_resnet_test
       probability = maxval(probabilities)
 
       ! Check top probability matches expected value
-      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1e-2)
+      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-2_wp)
 
       ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
       write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"

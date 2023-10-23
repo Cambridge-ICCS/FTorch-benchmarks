@@ -1,125 +1,140 @@
 module utils
 
-  use, intrinsic :: iso_fortran_env, only : dp => real64
+  use :: precision, only: wp, dp
 
   implicit none
 
   interface print_time_stats
-    module procedure print_time_stats_real, print_time_stats_dp
+    module procedure print_time_stats_dp
   end interface
 
   interface assert
-    module procedure assert_real_2d, assert_real
+    module procedure assert_real, assert_real_2d, assert_real_3d_dp
   end interface
 
-contains
+  interface print_assert
+    module procedure print_assert_real, print_assert_dp
+  end interface
 
-  subroutine assert_real_2d(a, b, test_name, rtol_opt)
+  contains
+
+  subroutine print_assert_real(test_name, is_close, relative_error)
 
     implicit none
 
-    character(len=*) :: test_name
-    real, intent(in), dimension(:,:) :: a, b
-    real, optional :: rtol_opt
-    real :: relative_error, rtol
-
+    character(len=*), intent(in) :: test_name
+    logical, intent(in) :: is_close
+    real(wp), intent(in) :: relative_error
     character(len=15) :: pass, fail
 
     fail = char(27)//'[31m'//'FAILED'//char(27)//'[0m'
     pass = char(27)//'[32m'//'PASSED'//char(27)//'[0m'
 
-    if (.not. present(rtol_opt)) then
-      rtol = 1e-5
-    else
-      rtol = rtol_opt
-    end if
-
-    relative_error = maxval(abs(a/b - 1.))
-
-    if (relative_error > rtol) then
-      write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') fail, trim(test_name), relative_error
-    else
+    if (is_close) then
       write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') pass, trim(test_name), relative_error
+    else
+      write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') fail, trim(test_name), relative_error
     end if
 
-  end subroutine assert_real_2d
+  end subroutine print_assert_real
+
+  subroutine print_assert_dp(test_name, is_close, relative_error)
+
+    implicit none
+
+    character(len=*), intent(in) :: test_name
+    logical, intent(in) :: is_close
+    real(dp), intent(in) :: relative_error
+    character(len=15) :: pass, fail
+
+    fail = char(27)//'[31m'//'FAILED'//char(27)//'[0m'
+    pass = char(27)//'[32m'//'PASSED'//char(27)//'[0m'
+
+    if (is_close) then
+      write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') pass, trim(test_name), relative_error
+    else
+      write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') fail, trim(test_name), relative_error
+    end if
+
+  end subroutine print_assert_dp
 
   subroutine assert_real(a, b, test_name, rtol_opt)
 
     implicit none
 
-    character(len=*) :: test_name
-    real, intent(in) :: a, b
-    real, optional :: rtol_opt
-    real :: relative_error, rtol
-
-    character(len=15) :: pass, fail
-
-    fail = char(27)//'[31m'//'FAILED'//char(27)//'[0m'
-    pass = char(27)//'[32m'//'PASSED'//char(27)//'[0m'
+    character(len=*), intent(in) :: test_name
+    real(wp), intent(in) :: a, b
+    real(wp), intent(in), optional :: rtol_opt
+    real(wp) :: relative_error, rtol
 
     if (.not. present(rtol_opt)) then
-      rtol = 1e-5
+      rtol = 1.0e-5_wp
     else
       rtol = rtol_opt
     end if
 
-    relative_error = abs(a/b - 1.)
-
-    if (relative_error > rtol) then
-      write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') fail, trim(test_name), relative_error
-    else
-      write(*, '(A, " :: [", A, "] maximum relative error = ", E11.4)') pass, trim(test_name), relative_error
-    end if
+    relative_error = abs(a/b - 1.0_wp)
+    call print_assert(test_name, (rtol > relative_error), relative_error)
 
   end subroutine assert_real
 
-  subroutine print_time_stats_real(durations)
+  subroutine assert_real_2d(a, b, test_name, rtol_opt)
 
     implicit none
 
-    real, intent(in) :: durations(:)
-    integer :: i, n
-    real :: mean, var, stddev
+    character(len=*), intent(in) :: test_name
+    real(wp), intent(in), dimension(:,:) :: a, b
+    real(wp), intent(in), optional :: rtol_opt
+    real(wp) :: relative_error, rtol
 
-    ! skip the first element because this is always slower
-    n = size(durations(2:), 1)
+    if (.not. present(rtol_opt)) then
+      rtol = 1.0e-5_wp
+    else
+      rtol = rtol_opt
+    end if
 
-    mean = sum(durations(2:)) / n
+    relative_error = maxval(abs(a/b - 1.0_wp))
+    call print_assert(test_name, (rtol > relative_error), relative_error)
 
-    var = 0.
+  end subroutine assert_real_2d
 
-    do i = 2, n
-      var = var + ( (durations(i) - mean)**2 / (n - 1) ) ! (n - 1) here is for corrected sample standard deviation
-    end do
+  subroutine assert_real_3d_dp(a, b, test_name, rtol_opt)
 
-    stddev = sqrt(var)
+    implicit none
 
-    write(*,'(A,F10.4)') "min    time taken (s): ", minval(durations(2:))
-    write(*,'(A,F10.4)') "max    time taken (s): ", maxval(durations(2:))
-    write(*,'(A,F10.4)') "mean   time taken (s): ", mean
-    write(*,'(A,F10.4)') "stddev time taken (s): ", stddev
-    write(*,'(A,I10)')   "sample size          : ", n
+    character(len=*), intent(in) :: test_name
+    real(dp), intent(in), dimension(:,:,:) :: a, b
+    real(dp), intent(in), optional :: rtol_opt
+    real(dp) :: relative_error, rtol
 
-  end subroutine print_time_stats_real
+    if (.not. present(rtol_opt)) then
+      rtol = 1.0e-5_dp
+    else
+      rtol = rtol_opt
+    end if
+
+    relative_error = maxval(abs(a/b - 1.0_dp))
+    call print_assert(test_name, (rtol > relative_error), relative_error)
+
+  end subroutine assert_real_3d_dp
 
   subroutine print_time_stats_dp(durations)
 
     implicit none
 
-    double precision, intent(in) :: durations(:)
+    real(dp), intent(in) :: durations(:)
+    real(dp) :: mean, var, stddev
     integer :: i, n
-    double precision :: mean, var, stddev
 
     ! skip the first element because this is always slower
     n = size(durations(2:), 1)
 
     mean = sum(durations(2:)) / n
 
-    var = 0._dp
+    var = 0.0_dp
 
     do i = 2, n
-      var = var + ( (durations(i) - mean)**2._dp / (n - 1._dp) ) ! (n - 1) here is for corrected sample standard deviation
+      var = var + ( (durations(i) - mean)**2._dp / (n - 1.0_dp) ) ! (n - 1) here is for corrected sample standard deviation
     end do
 
     stddev = sqrt(var)
@@ -131,19 +146,6 @@ contains
     write(*,'(A,I10)')     "sample size          : ", n
 
   end subroutine print_time_stats_dp
-
-  subroutine print_array_2d(array)
-
-    implicit none
-
-    real, intent(in) :: array(:,:)
-    integer :: i
-
-    do i = lbound(array,1), ubound(array,1)
-      write (*, *) array(i,:)
-    end do
-
-  end subroutine print_array_2d
 
   subroutine setup(model_dir, model_name, ntimes, n, use_cuda)
 
@@ -182,7 +184,7 @@ contains
 
   end subroutine setup
 
-  subroutine error_mesg (filename, line, message)
+  subroutine error_mesg(filename, line, message)
 
     use, intrinsic :: iso_fortran_env, only : stderr=>error_unit
 

@@ -7,11 +7,16 @@ use forpy_mod,              only:  import_py, module_py, call_py, object, ndarra
                                    ndarray_create, cast, print_py, dict, dict_create, err_print, &
                                    call_py_noret, list, get_sys_path, ndarray_create_nocopy, &
                                    ndarray_create_empty, ndarray_create_zeros, str, str_create
+use :: precision, only: dp
 
 !-------------------------------------------------------------------
 
 implicit none
-private   error_mesg, RADIAN, NOTE, WARNING, FATAL
+
+! Use double precision, rather than wp defined in precision module
+integer, parameter :: wp = dp
+
+private   error_mesg, RADIAN
 
 public    cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
 
@@ -33,9 +38,8 @@ type(list) :: paths
 type(object) :: model
 type(tuple) :: args
 type(str) :: py_model_dir
-integer, parameter :: NOTE=0, WARNING=1, FATAL=2
-real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
-real(kind=8), parameter :: RADIAN = 180.0 / PI
+real(wp), parameter :: PI = 4.0 * ATAN(1.0)
+real(wp), parameter :: RADIAN = 180.0 / PI
 
 
 !--------------------------------------------------------------------
@@ -44,14 +48,12 @@ real(kind=8), parameter :: RADIAN = 180.0 / PI
 contains
 
 ! PRIVATE ROUTINES
- subroutine error_mesg (routine, message, level)
+ subroutine error_mesg (routine, message)
   character(len=*), intent(in) :: routine, message
-  integer,          intent(in) :: level
 
 !  input:
 !      routine   name of the calling routine (character string)
 !      message   message written to output   (character string)
-!      level     set to NOTE, MESSAGE, or FATAL (integer)
 
     write(error_unit, '(a,":", a)') routine, message
 
@@ -74,7 +76,7 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   !    an ML model
   !
   !-----------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------
   !    intent(in) variables:
   !
@@ -83,34 +85,34 @@ subroutine cg_drag_ML_init(model_dir, model_name)
   !-----------------------------------------------------------------
   character(len=1024), intent(in)        :: model_dir
   character(len=1024), intent(in)        :: model_name
-  
+
   !-----------------------------------------------------------------
-  
+
   ! Initialise the ML model to be used
   ie = forpy_initialize()
-  
+
   ! Add the directory containing forpy related scripts and data to sys.path
   ! This does not appear to work?
   ! export PYTHONPATH=model_dir in the job environment.
   ie = str_create(py_model_dir, trim(model_dir))
   ie = get_sys_path(paths)
   ie = paths%append(py_model_dir)
-  
+
   ! import python modules to `run_emulator`
   ! Note, this will need to be able to load its dependencies
   ! such as `torch`, so you will probably need a venv.
   ie = import_py(run_emulator, trim(model_name))
   if (ie .ne. 0) then
       call err_print
-      call error_mesg('cg_drag', 'forpy model not loaded', FATAL)
+      call error_mesg('cg_drag', 'forpy model not loaded')
   end if
-  
+
   ! call initialize function from `run_emulator` python module
   ! loads a trained model to `model`
   ie = call_py(model, run_emulator, "initialize")
   if (ie .ne. 0) then
       call err_print
-      call error_mesg('cg_drag', 'call to `initialize` failed', FATAL)
+      call error_mesg('cg_drag', 'call to `initialize` failed')
   end if
 
 end subroutine cg_drag_ML_init
@@ -126,10 +128,10 @@ subroutine cg_drag_ML_end
   !    as an ML model.
   !
   !-----------------------------------------------------------------
-  
+
   ! destroy the forpy objects
   !
-  ! according to forpy no destroy nethod for strings such as 
+  ! according to forpy no destroy nethod for strings such as
   ! py_model_dir. Because they are just C under the hood?
   call paths%destroy
   call run_emulator%destroy
@@ -149,7 +151,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !    terms following calculation using an external neural net.
   !
   !-----------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------
   !    intent(in) variables:
   !
@@ -165,12 +167,12 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !                [ m/s^2 ]
   !
   !-----------------------------------------------------------------
-  
-  real(kind=8), dimension(:,:,:), intent(in)    :: uuu, vvv
-  real(kind=8), dimension(:,:),   intent(in)    :: lat, psfc
-  
-  real(kind=8), dimension(:,:,:), intent(out)   :: gwfcng_x, gwfcng_y
-  
+
+  real(wp), dimension(:,:,:), intent(in)    :: uuu, vvv
+  real(wp), dimension(:,:),   intent(in)    :: lat, psfc
+
+  real(wp), dimension(:,:,:), intent(out)   :: gwfcng_x, gwfcng_y
+
   !-----------------------------------------------------------------
 
   !-------------------------------------------------------------------
@@ -180,9 +182,9 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   !
   !---------------------------------------------------------------------
 
-  real(kind=8), dimension(:,:), allocatable, asynchronous  :: uuu_flattened, vvv_flattened
-  real(kind=8), dimension(:,:), allocatable, asynchronous    :: lat_reshaped, psfc_reshaped
-  real(kind=8), dimension(:,:), allocatable, asynchronous  :: gwfcng_x_flattened, gwfcng_y_flattened
+  real(wp), dimension(:,:), allocatable, asynchronous  :: uuu_flattened, vvv_flattened
+  real(wp), dimension(:,:), allocatable, asynchronous    :: lat_reshaped, psfc_reshaped
+  real(wp), dimension(:,:), allocatable, asynchronous  :: gwfcng_x_flattened, gwfcng_y_flattened
 
   integer :: imax, jmax, kmax, j
 
@@ -226,7 +228,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ie = args%setitem(2,lat_nd)
   ie = args%setitem(3,psfc_nd)
   ie = args%setitem(5,jmax)
-  
+
   ! Zonal
   ie = args%setitem(1,uuu_nd)
   ie = args%setitem(4,gwfcng_x_nd)
@@ -234,9 +236,9 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
   if (ie .ne. 0) then
       call err_print
-      call error_mesg('cg_drag_ML', 'inference x call failed', FATAL)
+      call error_mesg('cg_drag_ML', 'inference x call failed')
   end if
-  
+
   ! Meridional
   ie = args%setitem(1,vvv_nd)
   ie = args%setitem(4,gwfcng_y_nd)
@@ -244,7 +246,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
   if (ie .ne. 0) then
       call err_print
-      call error_mesg('cg_drag_ML', 'inference y call failed', FATAL)
+      call error_mesg('cg_drag_ML', 'inference y call failed')
   end if
 
 
@@ -264,7 +266,7 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   call gwfcng_x_nd%destroy
   call gwfcng_y_nd%destroy
   call args%destroy
-  
+
   deallocate( uuu_flattened )
   deallocate( vvv_flattened )
   deallocate( lat_reshaped )

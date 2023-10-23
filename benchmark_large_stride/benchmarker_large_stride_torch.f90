@@ -4,13 +4,14 @@ program benchmark_stride_test
   use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert, setup, print_time_stats
   use :: ftorch
+  use :: precision, only: wp, dp
 
   implicit none
 
   integer :: i, ii, n
-  double precision :: start_time, end_time
-  double precision, allocatable :: durations(:)
-  real, dimension(:,:), allocatable, target :: big_array, big_result
+  real(dp) :: start_time, end_time
+  real(dp), allocatable :: durations(:)
+  real(wp), dimension(:,:), allocatable, target :: big_array, big_result
 
   integer(c_int), parameter :: n_inputs = 1
   integer(c_int64_t) :: shape_2d(2)

@@ -6,11 +6,10 @@ moderate _slowdown_ when using our Fortran to PyTorch direct coupling library.
 This repository contains code to investigate that surprising result.
 
 ## Requirements
-Follow the build instructions below to set up the following requirements:
 
 1) [FTorch](https://github.com/Cambridge-ICCS/FTorch) repository.
 2) CMake >= 3.14
-3) Python
+3) Python (with development package)
 4) a virtual environment with PyTorch and NumPy installed
 
 ## Build instructions
@@ -23,7 +22,7 @@ mkdir build
 cd build
 cmake ..
 ```
-You may need to specify the path to PyTorch with the option `-DCMAKE_PREFIX-PATH=<full-path-to-PyTorch>`. 
+You may need to specify the path to PyTorch with the option `-DCMAKE_PREFIX_PATH=<full-path-to-PyTorch>`.
 
 You may also need to specify the path to the CMake library files by using the option `-DFTorch_DIR=<full-path-to-cmake-lib-files>/lib/cmake/`. This is the location you specified when installing FTorch, if you used `-DCMAKE_INSTALL_PREFIX`. The default location is /usr/local. 
 
@@ -87,13 +86,13 @@ make
 
 N=10      #number of times to run forward model
 NSIZE=128  #size of N x N tensor
-./benchmarker_large_stride_torch ../stridemodel saved_model.pth $N $NSIZE
-./benchmarker_large_stride_forpy ../stridemodel run_emulator_stride $N $NSIZE
+./benchmarker_large_stride_torch ../large_stride_model saved_large_stride_model_cpu.pt $N $NSIZE
+./benchmarker_large_stride_forpy ../large_stride_model run_emulator_stride             $N $NSIZE
 
 ```
 
 The preprocessor macro `USETS` can be enabled by passing CMake the option `-D USETS=1`. This will enable the forpy test to use a
-pre-saved torchscript `.pth` file. If this is omitted then forpy will generate a model in the python runtime environment.
+pre-saved torchscript `.pt` file. If this is omitted then forpy will generate a model in the python runtime environment.
 
 
 ## Results
@@ -106,7 +105,7 @@ For the synthetic test they appear to show that the forpy and directly-coupled a
 ### Directly coupled approach
 ```
  ====== DIRECT COUPLED ======
-Running model: ../stridemodel/saved_model.pth 10 times.
+Running model: ../large_stride_model/saved_large_stride_model.pt 10 times.
 PASSED :: [check iteration        1 (     3.237 s)] maximum relative error =  0.0000E+00
 PASSED :: [check iteration        2 (     2.023 s)] maximum relative error =  0.0000E+00
 PASSED :: [check iteration        3 (     2.027 s)] maximum relative error =  0.0000E+00
@@ -125,7 +124,7 @@ PASSED :: [check iteration       10 (     2.081 s)] maximum relative error =  0.
 ### Forpy approach (using torchscript saved model)
 ```
  ====== FORPY ======
-Running model: ../stridemodel/run_emulator_stride 10 times.
+Running model: ../large_stride_model/run_emulator_stride 10 times.
  load torchscript model
 PASSED :: [check iteration        1 (     3.141 s)] maximum relative error =  0.0000E+00
 PASSED :: [check iteration        2 (     1.952 s)] maximum relative error =  0.0000E+00
@@ -145,7 +144,7 @@ PASSED :: [check iteration       10 (     1.958 s)] maximum relative error =  0.
 ### Forpy approach (using python runtime)
 ```
  ====== FORPY ======
-Running model: ../stridemodel/run_emulator_stride 10 times.
+Running model: ../large_stride_model/run_emulator_stride 10 times.
  generate model in python runtime
 PASSED :: [check iteration        1 (     3.468 s)] maximum relative error =  0.0000E+00
 PASSED :: [check iteration        2 (     3.474 s)] maximum relative error =  0.0000E+00

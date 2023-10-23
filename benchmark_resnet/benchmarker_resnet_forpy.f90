@@ -7,11 +7,9 @@ program benchmark_resnet
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
                           get_sys_path, ndarray_create_nocopy, str, str_create
-  use :: precision, only: sp, dp
+  use :: precision, only: wp, dp
 
   implicit none
-
-  integer, parameter :: wp = sp
 
   call main()
 
@@ -22,8 +20,8 @@ program benchmark_resnet
     implicit none
 
     integer :: i, n
-    double precision :: start_time, end_time
-    double precision, allocatable :: durations(:)
+    real(dp) :: start_time, end_time
+    real(dp), allocatable :: durations(:)
     real(wp), dimension(:,:,:,:), allocatable, asynchronous :: in_data
     real(wp), dimension(:,:), allocatable, asynchronous :: out_data
 
@@ -44,7 +42,7 @@ program benchmark_resnet
     type(ndarray) :: out_data_nd, in_data_nd
 
     ! Binary file containing input tensor
-    character(len=*), parameter :: data_file = '../resnetmodel/image_tensor.dat'
+    character(len=*), parameter :: data_file = '../resnet_model/image_tensor.dat'
 
     ! Length of tensor and number of categories
     integer, parameter :: tensor_length = 150528
@@ -130,7 +128,7 @@ program benchmark_resnet
       probability = maxval(probabilities)
 
       ! Check top probability matches expected value
-      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1e-5)
+      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
 
       ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
       write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
