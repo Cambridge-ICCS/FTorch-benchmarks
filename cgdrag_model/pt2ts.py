@@ -125,10 +125,6 @@ if __name__ == "__main__":
     testing_input_l = 2.0 * trained_model_dummy_input_l
     testing_input_p = 2.0 * trained_model_dummy_input_p
 
-    # testing_input_u = testing_input_u.to(device)
-    # testing_input_l = testing_input_l.to(device)
-    # testing_input_p = testing_input_p.to(device)
-
     trained_model_testing_output = trained_model(
         testing_input_u, testing_input_l, testing_input_p
     )
