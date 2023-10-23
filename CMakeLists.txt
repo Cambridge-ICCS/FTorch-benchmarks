@@ -78,9 +78,9 @@ target_sources(benchmarker_torch PRIVATE benchmark_mima/cg_drag_torch_mod.f90)
 # Large stride test
 add_executable(benchmarker_large_stride_torch benchmark_large_stride/benchmarker_large_stride_torch.f90)
 target_link_libraries(benchmarker_large_stride_torch PRIVATE FTorch::ftorch )
-target_sources(benchmarker_large_stride_torch PRIVATE benchmarker_utils_mod.f90)
+target_sources(benchmarker_large_stride_torch PRIVATE benchmarker_utils_mod.f90 precision_mod.f90)
 
-# resnet test
+# ResNet test
 add_executable(benchmarker_resnet_torch benchmark_resnet/benchmarker_resnet_torch.f90)
 target_link_libraries(benchmarker_resnet_torch PRIVATE FTorch::ftorch )
 target_sources(benchmarker_resnet_torch PRIVATE benchmarker_utils_mod.f90 precision_mod.f90)
@@ -88,7 +88,7 @@ target_sources(benchmarker_resnet_torch PRIVATE benchmarker_utils_mod.f90 precis
 # cgdrag test
 add_executable(benchmarker_cgdrag_torch benchmark_cgdrag/benchmarker_cgdrag_torch.f90)
 target_link_libraries(benchmarker_cgdrag_torch PRIVATE FTorch::ftorch )
-target_sources(benchmarker_cgdrag_torch PRIVATE benchmarker_utils_mod.f90)
+target_sources(benchmarker_cgdrag_torch PRIVATE benchmarker_utils_mod.f90 precision_mod.f90)
 
 # Make sure python present
 # Search until Python version satisfying constraints is located
@@ -119,14 +119,14 @@ target_link_libraries(benchmarker_forpy PRIVATE Python::Python)
 # Large stride test
 option(USETS "Use torchscript format for forpy test" OFF)
 add_executable(benchmarker_large_stride_forpy benchmark_large_stride/benchmarker_large_stride_forpy.f90)
-target_sources(benchmarker_large_stride_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils_mod.f90)
+target_sources(benchmarker_large_stride_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils_mod.f90 precision_mod.f90)
 target_link_libraries(benchmarker_large_stride_forpy PRIVATE Python::Python)
 
 if (USETS)
     target_compile_definitions(benchmarker_large_stride_forpy PUBLIC USETS)
 endif()
 
-# resnet test
+# ResNet test
 option(USETS "Use torchscript format for forpy test" OFF)
 add_executable(benchmarker_resnet_forpy benchmark_resnet/benchmarker_resnet_forpy.f90)
 target_sources(benchmarker_resnet_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils_mod.f90 precision_mod.f90)
@@ -139,7 +139,7 @@ endif()
 # cgdrag test
 option(USETS "Use torchscript format for forpy test" OFF)
 add_executable(benchmarker_cgdrag_forpy benchmark_cgdrag/benchmarker_cgdrag_forpy.f90)
-target_sources(benchmarker_cgdrag_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils_mod.f90)
+target_sources(benchmarker_cgdrag_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmarker_utils_mod.f90 precision_mod.f90)
 target_link_libraries(benchmarker_cgdrag_forpy PRIVATE Python::Python)
 
 if (USETS)
