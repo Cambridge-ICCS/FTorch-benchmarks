@@ -37,7 +37,7 @@ def initialize(
         Device to load model. Must be either "cpu" or "cuda".
 
     """
-    checkpoint = load(path_weights_stats, map_location=device(device_str))
+    checkpoint = load(path_weights_stats)
     model = m.WaveNet(checkpoint).to(device_str)
 
     # Load weights and set to evaluation mode.

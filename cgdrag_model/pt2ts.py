@@ -72,7 +72,7 @@ if __name__ == "__main__":
     # FPTLIB-TODO
     # Load a pre-trained PyTorch model
     # Insert code here to load your model from file as `trained_model`:
-    trained_model = red.initialize(device_str="cpu")
+    trained_model = red.initialize()
 
     # Switch-off some specific layers/parts of the model that behave
     # differently during training and inference.
