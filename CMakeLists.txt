@@ -73,7 +73,7 @@ endif()
 
 add_executable(benchmarker_torch benchmark_mima/benchmarker_torch.f90)
 target_link_libraries(benchmarker_torch PRIVATE FTorch::ftorch )
-target_sources(benchmarker_torch PRIVATE benchmark_mima/cg_drag_torch_mod.f90)
+target_sources(benchmarker_torch PRIVATE benchmark_mima/cg_drag_torch_mod.f90 precision_mod.f90)
 
 # Large stride test
 add_executable(benchmarker_large_stride_torch benchmark_large_stride/benchmarker_large_stride_torch.f90)
@@ -112,8 +112,7 @@ FetchContent_MakeAvailable(forpy)
 message(STATUS "Building with the Fortran Forpy coupling")
 
 add_executable(benchmarker_forpy benchmark_mima/benchmarker_forpy.f90)
-target_sources(benchmarker_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90)
-target_sources(benchmarker_forpy PRIVATE benchmark_mima/cg_drag_forpy_mod.f90)
+target_sources(benchmarker_forpy PRIVATE ${forpy_SOURCE_DIR}/forpy_mod.F90 benchmark_mima/cg_drag_forpy_mod.f90 precision_mod.f90)
 target_link_libraries(benchmarker_forpy PRIVATE Python::Python)
 
 # Large stride test
