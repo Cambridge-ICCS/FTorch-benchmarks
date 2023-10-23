@@ -1,17 +1,21 @@
 program benchmarker
 use forpy_mod
-use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
-                                          stdout=>output_unit, &
-                                          stderr=>error_unit
+use :: omp_lib, only : omp_get_wtime
+use, intrinsic :: iso_fortran_env, only : stderr=>error_unit
 use cg_drag_forpy_mod, only: cg_drag_ML_init, cg_drag_ML_end, cg_drag_ML
+use :: precision, only: dp
+
 implicit none
+
+! Use double precision, rather than wp defined in precision module
+integer, parameter :: wp = dp
 
 integer :: ie, ntimes, i, j, k, ii, jj, kk, iter
 character(len=10) :: ntimes_char
 character(len=1024) :: model_dir, model_name
-real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
-real :: start_time, end_time
-real(kind=8), dimension(:,:), allocatable :: lat, psfc
+real(wp), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
+real(dp) :: start_time, end_time
+real(wp), dimension(:,:), allocatable :: lat, psfc
 integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
 
 ie = forpy_initialize()
@@ -36,10 +40,10 @@ allocate(gwfcng_y(I_MAX, J_MAX, K_MAX))
 allocate(lat(I_MAX, J_MAX))
 allocate(psfc(I_MAX, J_MAX))
 ! Read in saved input (and output) values
-open(10, file='../input_data/uuu.txt')
-open(11, file='../input_data/vvv.txt')
-open(12, file='../input_data/lat.txt')
-open(13, file='../input_data/psfc.txt')
+open(10, file='../cgdrag_model/uuu.txt')
+open(11, file='../cgdrag_model/vvv.txt')
+open(12, file='../cgdrag_model/lat.txt')
+open(13, file='../cgdrag_model/psfc.txt')
 do i = 1, I_MAX
     do j = 1, J_MAX
         do k = 1, K_MAX
@@ -55,7 +59,7 @@ end do
 call cg_drag_ML_init(model_dir, model_name)
 
 ! Start timing
-call cpu_time(start_time)
+start_time = omp_get_wtime()
 
 ! Run inference N many times (check output)
 do iter = 1, ntimes
@@ -63,7 +67,7 @@ do iter = 1, ntimes
 end do
 
 ! Stop timing, output results
-call cpu_time(end_time)
+end_time = omp_get_wtime()
 write(*,*)'Time taken: ', end_time-start_time
 
 ! Clean up

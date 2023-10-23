@@ -4,7 +4,7 @@ Contains all python commands MiMA will use.
 It needs in the same directory as `arch_DaveNet.py` which describes the
 model architecture, and `network_wst.pkl` which contains the model weights.
 """
-from torch import load, device, no_grad, reshape, zeros, tensor, float64, jit
+from torch import load, device, no_grad, tensor, float64, jit
 import arch_davenet as m
 
 
@@ -15,14 +15,14 @@ def initialize_ts(*args):
 
     """
 
-    filename, = args
+    (filename,) = args
     model = jit.load(filename)
 
     return model
 
 
 # Initialize everything
-def initialize(path_weights_stats="../pytorch/network_wst.pkl"):
+def initialize(path_weights_stats="../cgdrag_model/network_wst.pkl"):
     """
     Initialize a WaveNet model and load weights.
 

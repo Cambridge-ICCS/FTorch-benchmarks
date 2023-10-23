@@ -7,22 +7,27 @@ program benchmark_cgdrag_test
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
                           get_sys_path, ndarray_create_nocopy, str, str_create
+  use :: precision, only: dp
 
   implicit none
 
+  ! Use double precision, rather than wp defined in precision module
+  integer, parameter :: wp = dp
+
   integer :: i, j, k, ii, jj, kk, n
-  double precision :: start_time, end_time
-  double precision, allocatable :: durations(:)
+  real(dp) :: start_time, end_time
+  real(dp), allocatable :: durations(:)
 
   integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
-  real(kind=8), parameter :: PI = 4.0 * ATAN(1.0)
-  real(kind=8), parameter :: RADIAN = 180.0 / PI
-  real(kind=8), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
-  real(kind=8), dimension(:,:), allocatable :: lat, psfc
-  
-  real(kind=8), dimension(:,:), allocatable  :: uuu_flattened, vvv_flattened
-  real(kind=8), dimension(:,:), allocatable  :: lat_reshaped, psfc_reshaped
-  real(kind=8), dimension(:,:), allocatable  :: gwfcng_x_flattened, gwfcng_y_flattened
+  real(wp), parameter :: PI = 4.0 * ATAN(1.0)
+  real(wp), parameter :: RADIAN = 180.0 / PI
+  real(wp), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
+  real(wp), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
+  real(wp), dimension(:,:), allocatable :: lat, psfc
+
+  real(wp), dimension(:,:), allocatable  :: uuu_flattened, vvv_flattened
+  real(wp), dimension(:,:), allocatable  :: lat_reshaped, psfc_reshaped
+  real(wp), dimension(:,:), allocatable  :: gwfcng_x_flattened, gwfcng_y_flattened
 
   integer :: ie
   type(module_py) :: run_emulator
@@ -53,7 +58,7 @@ program benchmark_cgdrag_test
   allocate(gwfcng_y(I_MAX, J_MAX, K_MAX))
   allocate(lat(I_MAX, J_MAX))
   allocate(psfc(I_MAX, J_MAX))
-  
+
   ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
   allocate( uuu_flattened(I_MAX*J_MAX, K_MAX) )
   allocate( vvv_flattened(I_MAX*J_MAX, K_MAX) )
@@ -63,10 +68,19 @@ program benchmark_cgdrag_test
   allocate( gwfcng_y_flattened(I_MAX*J_MAX, K_MAX) )
 
   ! Read in saved input (and output) values
-  open(10, file='../input_data/uuu.txt')
-  open(11, file='../input_data/vvv.txt')
-  open(12, file='../input_data/lat.txt')
-  open(13, file='../input_data/psfc.txt')
+  open(10, file='../cgdrag_model/uuu.txt')
+  open(11, file='../cgdrag_model/vvv.txt')
+  open(12, file='../cgdrag_model/lat.txt')
+  open(13, file='../cgdrag_model/psfc.txt')
+
+  ! Read in reference data
+  allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
+  allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
+  open(14,file="../cgdrag_model/forpy_reference_x.txt")
+  open(15,file="../cgdrag_model/forpy_reference_y.txt")
+  read(14,*) gwfcng_x_ref
+  read(15,*) gwfcng_y_ref
+
   do i = 1, I_MAX
       do j = 1, J_MAX
           do k = 1, K_MAX
@@ -94,7 +108,7 @@ program benchmark_cgdrag_test
   print *, "load torchscript model"
   ! load torchscript saved model
   ie = tuple_create(args,1)
-  ie = str_create(filename, trim(model_dir//'/saved_model.pth'))
+  ie = str_create(filename, trim(model_dir//'/saved_cgdrag_model_cpu.pt'))
   ie = args%setitem(0, filename)
   ie = call_py(model, run_emulator, "initialize_ts", args)
   call args%destroy
@@ -176,18 +190,12 @@ program benchmark_cgdrag_test
     ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
     write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
     print *, trim(msg)
-    ! call assert(in_data, out_data/2., test_name=msg)
+
+    ! Check error
+    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-8_wp)
+    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-8_wp)
   end do
 
-  ! open(10,file="forpy_reference_x.txt")
-  ! open(20,file="forpy_reference_y.txt")
-
-  ! write(10,*) gwfcng_x
-  ! write(20,*) gwfcng_y
-
-  ! close(10)
-  ! close(20)
-  
   call print_time_stats(durations)
 
   deallocate(uuu)
@@ -203,5 +211,7 @@ program benchmark_cgdrag_test
   deallocate( gwfcng_x_flattened)
   deallocate( gwfcng_y_flattened)
   deallocate(durations)
+  deallocate(gwfcng_x_ref)
+  deallocate(gwfcng_y_ref)
 
 end program benchmark_cgdrag_test

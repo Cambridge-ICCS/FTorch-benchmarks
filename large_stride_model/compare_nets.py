@@ -22,4 +22,3 @@ model_o = redo.initialize()
 Y_out_o = redo.compute_reshape_drag(model_o, wind, lat, ps, Y_out, NUM_COL)
 
 print(np.array_equal(Y_out, Y_out_o))
-

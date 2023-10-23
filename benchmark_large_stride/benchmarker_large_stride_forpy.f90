@@ -7,13 +7,14 @@ program benchmark_stride_test
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
                           get_sys_path, ndarray_create_nocopy, str, str_create
+  use :: precision, only: wp, dp
 
   implicit none
 
   integer :: i, n
-  double precision :: start_time, end_time
-  double precision, allocatable :: durations(:)
-  real, dimension(:,:), allocatable, asynchronous :: big_array, big_result
+  real(dp) :: start_time, end_time
+  real(dp), allocatable :: durations(:)
+  real(wp), dimension(:,:), allocatable, asynchronous :: big_array, big_result
 
   integer :: ie
   type(module_py) :: run_emulator
@@ -55,7 +56,7 @@ program benchmark_stride_test
   print *, "load torchscript model"
   ! load torchscript saved model
   ie = tuple_create(args,1)
-  ie = str_create(filename, trim(model_dir//'/saved_model.pth'))
+  ie = str_create(filename, trim(model_dir//'/saved_model.pt'))
   ie = args%setitem(0, filename)
   ie = call_py(model, run_emulator, "initialize_ts", args)
   call args%destroy

@@ -18,32 +18,32 @@ class StrideNet(nn.Module):
 
         super().__init__()
 
-    def forward(self, BigTensor: torch.Tensor) -> torch.Tensor:
+    def forward(self, big_tensor: torch.Tensor) -> torch.Tensor:
         """
         Apply the network to a Big 2D `Tensor` of input features.
 
         Parameters
         ----------
-        BigTensor : torch.Tensor
+        big_tensor : torch.Tensor
             Large 2D Tensor.
 
         Returns
         -------
-        output : torch.Tensor
+        Y : torch.Tensor
             Tensor of predicted outputs.
 
         """
 
-        tensor_shape = BigTensor.shape
+        tensor_shape = big_tensor.shape
 
         Y = torch.zeros(tensor_shape)
 
         for i in range(tensor_shape[0]):
             for j in range(tensor_shape[1]):
-                Y[i, j] = 2.0 * BigTensor[i, j]
+                Y[i, j] = 2.0 * big_tensor[i, j]
 
         # negate first off-diagonal element
         # (this is to deliberately break the symmetry of the operation)
-        Y[0, 1] = -1.0*Y[0, 1]
+        Y[0, 1] = -1.0 * Y[0, 1]
 
         return Y

@@ -4,7 +4,7 @@ import torch
 
 # FPTLIB-TODO
 # Add a module import with your model here:
-import run_emulator_stride as res
+import run_emulator_davenet as red
 
 
 def script_to_torchscript(
@@ -52,7 +52,9 @@ def trace_to_torchscript(
     frozen_model.save(filename)
 
 
-def load_torchscript(filename: Optional[str] = "saved_model.pth") -> torch.nn.Module:
+def load_torchscript(
+    filename: Optional[str] = "saved_cgdrag_model_cpu.pt",
+) -> torch.nn.Module:
     """
     Load a TorchScript from file.
 
@@ -70,7 +72,7 @@ if __name__ == "__main__":
     # FPTLIB-TODO
     # Load a pre-trained PyTorch model
     # Insert code here to load your model from file as `trained_model`:
-    trained_model = res.initialize()
+    trained_model = red.initialize()
 
     # Switch-off some specific layers/parts of the model that behave
     # differently during training and inference.
@@ -80,10 +82,17 @@ if __name__ == "__main__":
     # FPTLIB-TODO
     # Generate a dummy input Tensor `dummy_input` to the model of appropriate size.
     # trained_model_dummy_input = torch.ones((512, 42))
-    trained_model_dummy_input = torch.ones((512, 512), dtype=torch.float64)
+    trained_model_dummy_input_u = torch.ones((512, 40), dtype=torch.float64)
+    trained_model_dummy_input_l = torch.ones((512, 1), dtype=torch.float64)
+    trained_model_dummy_input_p = torch.ones((512, 1), dtype=torch.float64)
+
     # Run model over dummy input
     # If something isn't working This will generate an error
-    trained_model_dummy_output = trained_model(trained_model_dummy_input)
+    trained_model_dummy_output = trained_model(
+        trained_model_dummy_input_u,
+        trained_model_dummy_input_l,
+        trained_model_dummy_input_p,
+    )
 
     # FPTLIB-TODO
     # If you want to save for inference on GPU uncomment the following 4 lines:
@@ -94,7 +103,7 @@ if __name__ == "__main__":
 
     # FPTLIB-TODO
     # Set the name of the file you want to save the torchscript model to
-    saved_ts_filename = "saved_model.pth"
+    saved_ts_filename = "saved_cgdrag_model_cpu.pt"
 
     # FPTLIB-TODO
     # Save the pytorch model using either scripting (recommended where possible) or tracing
@@ -109,10 +118,14 @@ if __name__ == "__main__":
     # trace_to_torchscript(trained_model, trained_model_dummy_input, filename=saved_ts_filename)
 
     # Load torchscript and run model as a test
-    testing_input = 2.0 * trained_model_dummy_input
-    trained_model_testing_output = trained_model(testing_input)
+    testing_input_u = 2.0 * trained_model_dummy_input_u
+    testing_input_l = 2.0 * trained_model_dummy_input_l
+    testing_input_p = 2.0 * trained_model_dummy_input_p
+    trained_model_testing_output = trained_model(
+        testing_input_u, testing_input_l, testing_input_p
+    )
     ts_model = load_torchscript(filename=saved_ts_filename)
-    ts_model_output = ts_model(testing_input)
+    ts_model_output = ts_model(testing_input_u, testing_input_l, testing_input_p)
 
     if torch.all(ts_model_output.eq(trained_model_testing_output)):
         print("Saved TorchScript model working as expected in a basic test.")
