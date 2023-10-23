@@ -23,7 +23,7 @@ def initialize_ts(*args):
 
 # Initialize everything
 def initialize(
-    path_weights_stats: str = "../pytorch/network_wst.pkl",
+    path_weights_stats: str = "../cgdrag_model/network_wst.pkl",
     device_str: str = "cpu",
 ):
     """
