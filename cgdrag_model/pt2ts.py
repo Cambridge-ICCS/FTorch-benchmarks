@@ -94,6 +94,8 @@ if __name__ == "__main__":
     # If you want to save for inference on GPU uncomment the following 7 lines:
     # device = torch.device('cuda')
     # trained_model = trained_model.to(device)
+    # trained_model.means = trained_model.means.to(device)
+    # trained_model.stds = trained_model.stds.to(device)
     # trained_model.eval()
     # trained_model_dummy_input_u = trained_model_dummy_input_u.to(device)
     # trained_model_dummy_input_l = trained_model_dummy_input_l.to(device)
