@@ -2,7 +2,7 @@ program benchmark_resnet
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert, setup, error_mesg, print_time_stats
+  use :: utils, only : assert, setup, error_mesg, print_all_time_stats
   use :: forpy_mod, only: import_py, module_py, call_py, object, ndarray, &
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
@@ -20,10 +20,12 @@ program benchmark_resnet
     implicit none
 
     integer :: i, n
-    real(dp) :: start_time, end_time
-    real(dp), allocatable :: durations(:)
     real(wp), dimension(:,:,:,:), allocatable, asynchronous :: in_data
     real(wp), dimension(:,:), allocatable, asynchronous :: out_data
+
+    real(dp) :: start_time, end_time
+    real(dp), allocatable :: durations(:,:)
+    character(len=20), allocatable :: messages(:)
 
     integer :: ie
     type(module_py) :: run_emulator
@@ -36,7 +38,7 @@ program benchmark_resnet
 #endif
 
     character(len=:), allocatable :: model_dir, model_name
-    character(len=128) :: msg
+    character(len=128) :: msg1, msg2
     integer :: ntimes
 
     type(ndarray) :: out_data_nd, in_data_nd
@@ -59,9 +61,12 @@ program benchmark_resnet
 
     allocate(in_data(1, 3, 224, 224))
     allocate(out_data(1, 1000))
-    allocate(durations(ntimes))
     allocate(probabilities(1, 1000))
+    allocate(durations(ntimes, 3))
+    allocate(messages(3))
 
+    ! ------------------------------ Start module timer ------------------------------
+    start_time = omp_get_wtime()
     ie = forpy_initialize()
     ie = str_create(py_model_dir, trim(model_dir))
     ie = get_sys_path(paths)
@@ -87,6 +92,10 @@ program benchmark_resnet
     ! use python module `run_emulator` to load a trained model
     ie = call_py(model, run_emulator, "initialize")
 #endif
+    end_time = omp_get_wtime()
+    durations(:, 1) = end_time - start_time
+    ! ------------------------------ End module timer ------------------------------
+
     if (ie .ne. 0) then
         call err_print
         call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
@@ -96,9 +105,9 @@ program benchmark_resnet
 
     do i = 1, ntimes
 
-      start_time = omp_get_wtime()
-
       ! creates numpy arrays
+      ! ------------------------------ Start tensor timer ------------------------------
+      start_time = omp_get_wtime()
       ie = ndarray_create_nocopy(in_data_nd, in_data)
       ie = ndarray_create_nocopy(out_data_nd, out_data)
 
@@ -107,20 +116,31 @@ program benchmark_resnet
       ie = args%setitem(0, model)
       ie = args%setitem(1, in_data_nd)
       ie = args%setitem(2, out_data_nd)
+      end_time = omp_get_wtime()
+      durations(i, 2) = end_time - start_time
+      ! ------------------------------ End tensor timer ------------------------------
 
+      ! ------------------------------ Start inference timer ------------------------------
+      start_time = omp_get_wtime()
       ie = call_py_noret(run_emulator, "compute", args)
+      end_time = omp_get_wtime()
+      durations(i, 3) = end_time - start_time
+      ! ------------------------------ End inference timer ------------------------------
+
       if (ie .ne. 0) then
           call err_print
           call error_mesg(__FILE__, __LINE__, "inference call failed")
       end if
 
       ! Clean up.
+      ! ------------------------------ Start tensor timer ------------------------------
+      start_time = omp_get_wtime()
       call out_data_nd%destroy
       call in_data_nd%destroy
       call args%destroy
-
       end_time = omp_get_wtime()
-      durations(i) = end_time-start_time
+      durations(i, 2) = durations(i, 2) + (end_time - start_time)
+      ! ------------------------------ End tensor timer ------------------------------
 
       ! Calculate probabilities and output results
       call calc_probs(out_data, probabilities)
@@ -131,16 +151,26 @@ program benchmark_resnet
       call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
 
       ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-      write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
-      print *, trim(msg)
+      write(msg1, '(A, I8, A, F10.3, A)') "check iteration inference", i, " (", durations(i, 3), " s) [omp]"
+      write(msg2, '(A, I8, A, F10.3, A)') "check iteration tensors", i, " (", durations(i, 2), " s) [omp]"
+      print *, trim(msg1)
+      print *, trim(msg2)
 
     end do
 
-    call print_time_stats(durations)
+    ! ------------------------------ Start module timer ------------------------------
+    start_time = omp_get_wtime()
+    end_time = omp_get_wtime()
+    durations(:, 1) = durations(:, 1) + (end_time - start_time)
+    ! ------------------------------ End module timer ------------------------------
+
+    messages = [character(len=20) :: "--- modules ---", "--- tensors ---", "--- forward pass ---"]
+    call print_all_time_stats(durations, messages)
 
     deallocate(in_data)
     deallocate(out_data)
     deallocate(durations)
+    deallocate(messages)
     deallocate(probabilities)
 
   end subroutine main

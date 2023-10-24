@@ -2,7 +2,7 @@ program benchmark_cgdrag_test
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert, setup, error_mesg, print_time_stats
+  use :: utils, only : assert, setup, error_mesg, print_all_time_stats
   use :: forpy_mod, only: import_py, module_py, call_py, object, ndarray, &
                           forpy_initialize, forpy_finalize, tuple, tuple_create, &
                           ndarray_create, err_print, call_py_noret, list, &
@@ -16,7 +16,8 @@ program benchmark_cgdrag_test
 
   integer :: i, j, k, ii, jj, kk, n
   real(dp) :: start_time, end_time
-  real(dp), allocatable :: durations(:)
+  real(dp), allocatable :: durations(:,:)
+  character(len=20), allocatable :: messages(:)
 
   integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
   real(wp), parameter :: PI = 4.0 * ATAN(1.0)
@@ -40,7 +41,7 @@ program benchmark_cgdrag_test
 #endif
 
   character(len=:), allocatable :: model_dir, model_name
-  character(len=128) :: msg
+  character(len=128) :: msg1, msg2
   integer :: ntimes
 
   type(ndarray) :: uuu_nd, vvv_nd, gwfcng_x_nd, gwfcng_y_nd, lat_nd, psfc_nd
@@ -49,7 +50,8 @@ program benchmark_cgdrag_test
 
   call setup(model_dir, model_name, ntimes, n)
 
-  allocate(durations(ntimes))
+  allocate(durations(ntimes, 3))
+  allocate(messages(3))
 
   ! Read gravity wave parameterisation data in from file
   allocate(uuu(I_MAX, J_MAX, K_MAX))
@@ -73,6 +75,17 @@ program benchmark_cgdrag_test
   open(12, file='../cgdrag_model/lat.txt')
   open(13, file='../cgdrag_model/psfc.txt')
 
+  do i = 1, I_MAX
+    do j = 1, J_MAX
+        do k = 1, K_MAX
+            read(10, '(3(I4, 1X), E25.16)') ii, jj, kk, uuu(ii,jj,kk)
+            read(11, '(3(I4, 1X), E25.16)') ii, jj, kk, vvv(ii,jj,kk)
+        end do
+        read(12, '(2(I4, 1X), E25.16)') ii, jj, lat(ii,jj)
+        read(13, '(2(I4, 1X), E25.16)') ii, jj, psfc(ii,jj)
+    end do
+  end do
+
   ! Read in reference data
   allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
   allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
@@ -81,17 +94,15 @@ program benchmark_cgdrag_test
   read(14,*) gwfcng_x_ref
   read(15,*) gwfcng_y_ref
 
-  do i = 1, I_MAX
-      do j = 1, J_MAX
-          do k = 1, K_MAX
-              read(10, '(3(I4, 1X), E25.16)') ii, jj, kk, uuu(ii,jj,kk)
-              read(11, '(3(I4, 1X), E25.16)') ii, jj, kk, vvv(ii,jj,kk)
-          end do
-          read(12, '(2(I4, 1X), E25.16)') ii, jj, lat(ii,jj)
-          read(13, '(2(I4, 1X), E25.16)') ii, jj, psfc(ii,jj)
-      end do
-  end do
+  close(10)
+  close(11)
+  close(12)
+  close(13)
+  close(14)
+  close(15)
 
+  ! ------------------------------ Start module timer ------------------------------
+  start_time = omp_get_wtime()
   ie = forpy_initialize()
   ie = str_create(py_model_dir, trim(model_dir))
   ie = get_sys_path(paths)
@@ -117,14 +128,16 @@ program benchmark_cgdrag_test
   ! use python module `run_emulator` to load a trained model
   ie = call_py(model, run_emulator, "initialize")
 #endif
+  end_time = omp_get_wtime()
+  durations(:, 1) = end_time - start_time
+  ! ------------------------------ End module timer ------------------------------
+
   if (ie .ne. 0) then
       call err_print
       call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
   end if
 
-
   do i = 1, ntimes
-
 
     do j=1,J_MAX
         uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
@@ -133,8 +146,9 @@ program benchmark_cgdrag_test
         psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
     end do
 
-    ! write (*,*) gwfcng_x(1, 1, 1:10)
     ! creates numpy arrays
+    ! ------------------------------ Start tensor timer ------------------------------
+    start_time = omp_get_wtime()
     ie = ndarray_create_nocopy(uuu_nd, uuu_flattened)
     ie = ndarray_create_nocopy(vvv_nd, vvv_flattened)
     ie = ndarray_create_nocopy(lat_nd, lat_reshaped)
@@ -150,20 +164,37 @@ program benchmark_cgdrag_test
     ie = args%setitem(3, psfc_nd)
     ie = args%setitem(4, gwfcng_x_nd)
     ie = args%setitem(5, J_MAX)
+    end_time = omp_get_wtime()
+    durations(i, 2) = end_time - start_time
+    ! ------------------------------ End tensor timer ------------------------------
 
+    ! ------------------------------ Start inference timer ------------------------------
+    start_time = omp_get_wtime()
     ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
+    end_time = omp_get_wtime()
+    durations(i, 3) = end_time - start_time
+    ! ------------------------------ End inference timer ------------------------------
+
     if (ie .ne. 0) then
         call err_print
         call error_mesg(__FILE__, __LINE__, "inference call failed")
     end if
 
     ! create model input args as tuple
+    ! ------------------------------ Start tensor timer ------------------------------
+    start_time = omp_get_wtime()
     ie = args%setitem(1, vvv_nd)
     ie = args%setitem(4, gwfcng_y_nd)
+    end_time = omp_get_wtime()
+    durations(i, 2) = durations(i, 2) + (end_time - start_time)
+    ! ------------------------------ End tensor timer ------------------------------
 
+    ! ------------------------------ Start inference timer ------------------------------
     start_time = omp_get_wtime()
     ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
     end_time = omp_get_wtime()
+    durations(i, 3) = durations(i, 3) + (end_time - start_time)
+    ! ------------------------------ End inference timer ------------------------------
 
     if (ie .ne. 0) then
         call err_print
@@ -176,8 +207,9 @@ program benchmark_cgdrag_test
         gwfcng_y(:,j,:) = gwfcng_y_flattened((j-1)*I_MAX+1:j*I_MAX,:)
     end do
 
-
     ! Clean up.
+    ! ------------------------------ Start tensor timer ------------------------------
+    start_time = omp_get_wtime()
     call uuu_nd%destroy
     call vvv_nd%destroy
     call gwfcng_x_nd%destroy
@@ -185,18 +217,30 @@ program benchmark_cgdrag_test
     call lat_nd%destroy
     call psfc_nd%destroy
     call args%destroy
-
-    durations(i) = end_time-start_time
-    ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
-    print *, trim(msg)
+    end_time = omp_get_wtime()
+    durations(i, 2) = durations(i, 2) + (end_time - start_time)
+    ! ------------------------------ End tensor timer ------------------------------
 
     ! Check error
     call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-8_wp)
     call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-8_wp)
+
+    ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
+    write(msg1, '(A, I8, A, F10.3, A)') "check iteration inference", i, " (", durations(i, 3), " s) [omp]"
+    write(msg2, '(A, I8, A, F10.3, A)') "check iteration tensors", i, " (", durations(i, 2), " s) [omp]"
+    print *, trim(msg1)
+    print *, trim(msg2)
+
   end do
 
-  call print_time_stats(durations)
+  ! ------------------------------ Start module timer ------------------------------
+  start_time = omp_get_wtime()
+  end_time = omp_get_wtime()
+  durations(:, 1) = durations(:, 1) + (end_time - start_time)
+  ! ------------------------------ End module timer ------------------------------
+
+  messages = [character(len=20) :: "--- modules ---", "--- tensors ---", "--- forward pass ---"]
+  call print_all_time_stats(durations, messages)
 
   deallocate(uuu)
   deallocate(vvv)
@@ -204,12 +248,12 @@ program benchmark_cgdrag_test
   deallocate(psfc)
   deallocate(gwfcng_x)
   deallocate(gwfcng_y)
-  deallocate( uuu_flattened)
-  deallocate( vvv_flattened)
-  deallocate( lat_reshaped)
-  deallocate( psfc_reshaped)
-  deallocate( gwfcng_x_flattened)
-  deallocate( gwfcng_y_flattened)
+  deallocate(uuu_flattened)
+  deallocate(vvv_flattened)
+  deallocate(lat_reshaped)
+  deallocate(psfc_reshaped)
+  deallocate(gwfcng_x_flattened)
+  deallocate(gwfcng_y_flattened)
   deallocate(durations)
   deallocate(gwfcng_x_ref)
   deallocate(gwfcng_y_ref)
