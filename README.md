@@ -9,8 +9,10 @@ This repository contains code to investigate that surprising result.
 
 1) [FTorch](https://github.com/Cambridge-ICCS/FTorch) repository.
 2) CMake >= 3.14
-3) Python (with development package)
+3) Python<sup>*</sup>
 4) a virtual environment with PyTorch and NumPy installed
+
+<sup>*</sup> _You may need to download header files for the Python C API. On Ubuntu, this can be done using `sudo apt-get install python-dev` (replacing `python` with `python3.x` for specific Python versions)._
 
 ## Build instructions
 Install the [FTorch](https://github.com/Cambridge-ICCS/FTorch) library if you haven't already got it. Follow the installation instructions on the README of that repository. 
