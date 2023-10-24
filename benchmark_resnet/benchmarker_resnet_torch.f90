@@ -2,7 +2,7 @@ program benchmark_resnet_test
 
   use, intrinsic :: iso_c_binding, only: c_int64_t, c_loc
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert, setup, print_time_stats
+  use :: utils, only : assert, setup, print_all_time_stats
   ! Import our library for interfacing with PyTorch
   use :: ftorch
   ! Define working precision for C primitives and Fortran reals
@@ -21,7 +21,8 @@ program benchmark_resnet_test
 
     integer :: i, ii, n
     real(dp) :: start_time, end_time
-    real(dp), allocatable :: durations(:)
+    real(dp), allocatable :: durations(:,:)
+    character(len=20), allocatable :: messages(:)
 
     real(c_wp), dimension(:,:,:,:), allocatable, target :: in_data
     integer(c_int), parameter :: n_inputs = 1
@@ -35,7 +36,7 @@ program benchmark_resnet_test
     integer(c_int) :: out_layout(out_dims) = [1,2]
 
     character(len=:), allocatable :: model_dir, model_name
-    character(len=128) :: msg
+    character(len=128) :: msg1, msg2
     integer :: ntimes
 
     type(torch_module) :: model
@@ -60,32 +61,49 @@ program benchmark_resnet_test
 
     allocate(in_data(in_shape(1), in_shape(2), in_shape(3), in_shape(4)))
     allocate(out_data(out_shape(1), out_shape(2)))
-    allocate(durations(ntimes))
     allocate(probabilities(out_shape(1), out_shape(2)))
 
+    allocate(durations(ntimes, 3))
+    allocate(messages(3))
+
+    ! ------------------------------ Start module timer ------------------------------
+    start_time = omp_get_wtime()
     model = torch_module_load(model_dir//"/"//model_name)
+    end_time = omp_get_wtime()
+    durations(:, 1) = end_time - start_time
+    ! ------------------------------ End module timer ------------------------------
 
     ! Initialise data - previously in loop, but not modified?
     call load_data(filename, tensor_length, in_data)
 
     do i = 1, ntimes
 
-      start_time = omp_get_wtime()
-
       ! Create input and output tensors for the model.
+      ! ------------------------------ Start tensor timer ------------------------------
+      start_time = omp_get_wtime()
       in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_kFloat32, torch_kCPU, in_layout)
       out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_kFloat32, torch_kCPU, out_layout)
+      end_time = omp_get_wtime()
+      durations(i, 2) = end_time - start_time
+      ! ------------------------------ End tensor timer ------------------------------
 
+      ! ------------------------------ Start inference timer ------------------------------
+      start_time = omp_get_wtime()
       call torch_module_forward(model, in_tensor, n_inputs, out_tensor)
+      end_time = omp_get_wtime()
+      durations(i, 3) = end_time - start_time
+      ! ------------------------------ End inference timer ------------------------------
 
       ! Clean up.
+      ! ------------------------------ Start tensor timer ------------------------------
+      start_time = omp_get_wtime()
       call torch_tensor_delete(out_tensor)
       do ii = 1, n_inputs
         call torch_tensor_delete(in_tensor(ii))
       end do
-
       end_time = omp_get_wtime()
-      durations(i) = end_time-start_time
+      durations(i, 2) = durations(i, 2) + (end_time - start_time)
+      ! ------------------------------ End tensor timer ------------------------------
 
       ! Calculate probabilities and output results
       call calc_probs(out_data, probabilities)
@@ -96,18 +114,26 @@ program benchmark_resnet_test
       call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
 
       ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-      write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
-      print *, trim(msg)
+      write(msg1, '(A, I8, A, F10.3, A)') "check iteration inference", i, " (", durations(i, 3), " s) [omp]"
+      write(msg2, '(A, I8, A, F10.3, A)') "check iteration tensors", i, " (", durations(i, 2), " s) [omp]"
+      print *, trim(msg1)
+      print *, trim(msg2)
     end do
 
-    call print_time_stats(durations)
-
-
+    ! ------------------------------ Start module timer ------------------------------
+    start_time = omp_get_wtime()
     call torch_module_delete(model)
+    end_time = omp_get_wtime()
+    durations(:, 1) = durations(:, 1) + (end_time - start_time)
+    ! ------------------------------ End module timer ------------------------------
+
+    messages = [character(len=20) :: "--- modules ---", "--- tensors ---", "--- forward pass ---"]
+    call print_all_time_stats(durations, messages)
 
     deallocate(in_data)
     deallocate(out_data)
     deallocate(durations)
+    deallocate(messages)
     deallocate(probabilities)
 
   end subroutine main

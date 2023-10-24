@@ -8,6 +8,10 @@ module utils
     module procedure print_time_stats_dp
   end interface
 
+  interface print_all_time_stats
+    module procedure print_all_time_stats_dp
+  end interface
+
   interface assert
     module procedure assert_real, assert_real_2d, assert_real_3d_dp
   end interface
@@ -118,11 +122,39 @@ module utils
 
   end subroutine assert_real_3d_dp
 
-  subroutine print_time_stats_dp(durations)
+  subroutine print_all_time_stats_dp(durations, messages)
+
+    implicit none
+
+    real(dp), intent(in) :: durations(:,:)
+    character(len=*), optional, intent(in) :: messages(:)
+    integer :: n, i
+    real(dp), allocatable :: means(:)
+    real(dp) :: mean
+
+    allocate(means(size(durations, 2)))
+    n = size(durations(2:, 1), 1)
+
+    do i = 1, size(durations, 2)
+      call print_time_stats_dp(durations(:, i), messages(i))
+      means(i) = sum(durations(2:, i)) / n
+    end do
+
+    mean = sum(means)
+
+    write(*,'(A,F10.4,A)') "Combined mean time taken (s): ", mean, " [omp]"
+    write(*,'(A,I10)')     "sample size          : ", n
+
+    deallocate(means)
+
+  end subroutine print_all_time_stats_dp
+
+  subroutine print_time_stats_dp(durations, message)
 
     implicit none
 
     real(dp), intent(in) :: durations(:)
+    character(len=*), optional, intent(in) :: message
     real(dp) :: mean, var, stddev
     integer :: i, n
 
@@ -134,11 +166,14 @@ module utils
     var = 0.0_dp
 
     do i = 2, n
-      var = var + ( (durations(i) - mean)**2._dp / (n - 1.0_dp) ) ! (n - 1) here is for corrected sample standard deviation
+      var = var + ( (durations(i) - mean)**2.0_dp / (n - 1.0_dp) ) ! (n - 1) here is for corrected sample standard deviation
     end do
 
     stddev = sqrt(var)
 
+    if (present(message)) then
+      write(*,*) trim(adjustl(message))
+    endif
     write(*,'(A,F10.4,A)') "min    time taken (s): ", minval(durations(2:)), " [omp]"
     write(*,'(A,F10.4,A)') "max    time taken (s): ", maxval(durations(2:)), " [omp]"
     write(*,'(A,F10.4,A)') "mean   time taken (s): ", mean, " [omp]"
