@@ -83,7 +83,7 @@ program benchmark_stride_test
     call assert(big_array, big_result/2., test_name="Check array")
 
     write(msg1, '(A, I8, A, F10.3, A)') "check iteration inference", i, " (", durations(i, 3), " s) [omp]"
-    write(msg2, '(A, I8, A, F10.3, A)') "check iteration tensors", i, " (", durations(i, 2), " s) [omp]"
+    write(msg2, '(A, I10, A, F10.3, A)') "check iteration tensors", i, " (", durations(i, 2), " s) [omp]"
     print *, trim(msg1)
     print *, trim(msg2)
   end do

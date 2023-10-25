@@ -129,21 +129,30 @@ module utils
     real(dp), intent(in) :: durations(:,:)
     character(len=*), optional, intent(in) :: messages(:)
     integer :: n, i
-    real(dp), allocatable :: means(:)
-    real(dp) :: mean
+    real(dp), allocatable :: means(:), loop_means(:)
+    real(dp) :: mean, loop_mean
 
     allocate(means(size(durations, 2)))
+    allocate(loop_means(size(durations, 2) - 1))
     n = size(durations(2:, 1), 1)
+
+    do i = 2, size(durations, 2)
+      loop_means(i - 1) = sum(durations(2:, i)) / n
+    end do
 
     do i = 1, size(durations, 2)
       call print_time_stats_dp(durations(:, i), messages(i))
       means(i) = sum(durations(2:, i)) / n
     end do
 
+    loop_mean = sum(loop_means)
     mean = sum(means)
 
-    write(*,'(A,F10.4,A)') "Combined mean time taken (s): ", mean, " [omp]"
-    write(*,'(A,I10)')     "sample size          : ", n
+    write (*,*) "----------- Combined results ----------------"
+    write(*,'(A,F10.4,A)') "Mean time taken per loop (s): ", loop_mean, " [omp]"
+    write(*,'(A,F18.4,A)') "Sum of all means (s): ", mean, " [omp]"
+    write(*,'(A,I22)')     "sample size: ", n
+    write (*,*) "---------------------------------------------"
 
     deallocate(means)
 
