@@ -10,6 +10,7 @@ program benchmark_cgdrag_test
 
   ! Use double precision, rather than wp defined in precision module
   integer, parameter :: wp = dp
+  integer, parameter :: torch_wp = torch_kFloat64
 
   integer :: i, j, k, ii, jj, kk, n
   real(dp) :: start_time, end_time
@@ -122,12 +123,12 @@ program benchmark_cgdrag_test
     ! Create input and output tensors for the model.
     ! ------------------------------ Start tensor timer ------------------------------
     start_time = omp_get_wtime()
-    in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
-    in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
+    in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+    in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
 
     ! Zonal
-    in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
-    gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
+    in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+    gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
     end_time = omp_get_wtime()
     durations(i, 2) = end_time - start_time
     ! ------------------------------ End tensor timer ------------------------------
@@ -143,8 +144,8 @@ program benchmark_cgdrag_test
     ! Meridional
     ! ------------------------------ Start tensor timer ------------------------------
     start_time = omp_get_wtime()
-    in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
-    gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
+    in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+    gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
     end_time = omp_get_wtime()
     durations(i, 2) = durations(i, 2) + (end_time - start_time)
     ! ------------------------------ End tensor timer ------------------------------

@@ -81,8 +81,8 @@ program benchmark_resnet_test
       ! Create input and output tensors for the model.
       ! ------------------------------ Start tensor timer ------------------------------
       start_time = omp_get_wtime()
-      in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_kFloat32, torch_kCPU, in_layout)
-      out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_kFloat32, torch_kCPU, out_layout)
+      in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_wp, torch_kCPU, in_layout)
+      out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_wp, torch_kCPU, out_layout)
       end_time = omp_get_wtime()
       durations(i, 2) = end_time - start_time
       ! ------------------------------ End tensor timer ------------------------------

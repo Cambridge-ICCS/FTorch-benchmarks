@@ -12,6 +12,7 @@ implicit none
 
 ! Use double precision, rather than wp defined in precision module
 integer, parameter :: wp = dp
+integer, parameter :: torch_wp = torch_kFloat64
 
 private   RADIAN
 
@@ -168,18 +169,18 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   lat = lat*RADIAN
 
   ! Create input/output tensors from the above arrays
-  model_input_arr(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
-  model_input_arr(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
+  model_input_arr(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+  model_input_arr(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
 
   ! Zonal
-  model_input_arr(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
-  gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
+  model_input_arr(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+  gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
   ! Run model and Infer
   call torch_module_forward(model, model_input_arr, n_inputs, gwfcng_x_tensor)
 
   ! Meridional
-  model_input_arr(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
-  gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
+  model_input_arr(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+  gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
   ! Run model and Infer
   call torch_module_forward(model, model_input_arr, n_inputs, gwfcng_y_tensor)
 

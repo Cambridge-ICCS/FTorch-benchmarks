@@ -8,6 +8,8 @@ program benchmark_stride_test
 
   implicit none
 
+  integer, parameter :: torch_wp = torch_kFloat32
+
   integer :: i, ii, n
   real(dp) :: start_time, end_time
   real(dp), allocatable :: durations(:,:)
@@ -52,8 +54,8 @@ program benchmark_stride_test
     ! Create input and output tensors for the model.
     ! ------------------------------ Start tensor timer ------------------------------
     start_time = omp_get_wtime()
-    input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_kFloat32, torch_kCPU, stride_2d)
-    result_tensor = torch_tensor_from_blob(c_loc(big_result), 2, shape_2d, torch_kFloat32, torch_kCPU, stride_2d)
+    input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_wp, torch_kCPU, stride_2d)
+    result_tensor = torch_tensor_from_blob(c_loc(big_result), 2, shape_2d, torch_wp, torch_kCPU, stride_2d)
     end_time = omp_get_wtime()
     durations(i, 2) = end_time - start_time
     ! ------------------------------ End tensor timer ------------------------------
