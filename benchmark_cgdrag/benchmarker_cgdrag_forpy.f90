@@ -22,6 +22,7 @@ program benchmark_cgdrag_test
   integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
   real(wp), parameter :: PI = 4.0 * ATAN(1.0)
   real(wp), parameter :: RADIAN = 180.0 / PI
+
   real(wp), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
   real(wp), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
   real(wp), dimension(:,:), allocatable :: lat, psfc
@@ -242,19 +243,20 @@ program benchmark_cgdrag_test
   messages = [character(len=20) :: "--- modules ---", "--- tensors ---", "--- forward pass ---"]
   call print_all_time_stats(durations, messages)
 
+  deallocate(durations)
+  deallocate(messages)
   deallocate(uuu)
   deallocate(vvv)
-  deallocate(lat)
-  deallocate(psfc)
   deallocate(gwfcng_x)
   deallocate(gwfcng_y)
+  deallocate(lat)
+  deallocate(psfc)
   deallocate(uuu_flattened)
   deallocate(vvv_flattened)
   deallocate(lat_reshaped)
   deallocate(psfc_reshaped)
   deallocate(gwfcng_x_flattened)
   deallocate(gwfcng_y_flattened)
-  deallocate(durations)
   deallocate(gwfcng_x_ref)
   deallocate(gwfcng_y_ref)
 

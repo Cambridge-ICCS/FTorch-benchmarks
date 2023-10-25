@@ -24,6 +24,10 @@ program benchmark_cgdrag_test
   real(wp), dimension(:,:,:), allocatable, target :: uuu, vvv, gwfcng_x, gwfcng_y
   real(wp), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
   real(wp), dimension(:,:), allocatable, target :: lat, psfc
+
+  real(wp), dimension(:,:), allocatable, target :: uuu_flattened, vvv_flattened
+  real(wp), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
+
   integer(c_int), parameter :: n_inputs = 3
 
   ! Shape is the shape of the tensor we want to go into the torch
@@ -37,9 +41,6 @@ program benchmark_cgdrag_test
   integer(c_int), parameter :: dims_out = 2
   integer(c_int64_t) :: shape_out(dims_out) = [I_MAX*J_MAX, K_MAX]
   integer(c_int) :: stride_out(dims_out) = [1,2]
-
-  real(wp), dimension(:,:), allocatable, target :: uuu_flattened, vvv_flattened
-  real(wp), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
 
   character(len=:), allocatable :: model_dir, model_name
   character(len=128) :: msg1, msg2
@@ -102,8 +103,6 @@ program benchmark_cgdrag_test
   close(14)
   close(15)
 
-  lat = lat*RADIAN
-
   ! ------------------------------ Start module timer ------------------------------
   start_time = omp_get_wtime()
   model = torch_module_load(model_dir//"/"//model_name)
@@ -116,7 +115,7 @@ program benchmark_cgdrag_test
     do j=1,J_MAX
         uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
         vvv_flattened((j-1)*I_MAX+1:j*I_MAX,:) = vvv(:,j,:)
-        lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)
+        lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)*RADIAN
         psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
     end do
 
@@ -192,14 +191,18 @@ program benchmark_cgdrag_test
   messages = [character(len=20) :: "--- modules ---", "--- tensors ---", "--- forward pass ---"]
   call print_all_time_stats(durations, messages)
 
+  deallocate(durations)
+  deallocate(messages)
   deallocate(uuu)
   deallocate(vvv)
   deallocate(gwfcng_x)
   deallocate(gwfcng_y)
   deallocate(lat)
   deallocate(psfc)
-  deallocate(durations)
-  deallocate(messages)
+  deallocate(uuu_flattened)
+  deallocate(vvv_flattened)
+  deallocate(lat_reshaped)
+  deallocate(psfc_reshaped)
   deallocate(gwfcng_x_ref)
   deallocate(gwfcng_y_ref)
 
