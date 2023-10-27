@@ -176,8 +176,13 @@ program benchmark_stride_test
         module_load_durations(i) = end_time - start_time
         ! ------------------------------ End module load timer ------------------------------
 
-        ! ------------------------------ Start module deletion timer ------------------------------
-        module_delete_durations(i) = 0.
+        ! We can only call forpy_finalize once
+        if (i == ntimes) then
+          start_time = omp_get_wtime()
+          call forpy_finalize()
+          end_time = omp_get_wtime()
+          module_delete_durations(:) = end_time - start_time
+        end if
         ! ------------------------------ End module deletion timer ------------------------------
       end do
 
