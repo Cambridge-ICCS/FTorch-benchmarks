@@ -19,122 +19,159 @@ program benchmark_resnet_test
 
     subroutine main()
 
-    integer :: i, ii, n
-    real(dp) :: start_time, end_time
-    real(dp), allocatable :: durations(:,:)
-    character(len=20), allocatable :: messages(:)
+      implicit none
 
-    real(c_wp), dimension(:,:,:,:), allocatable, target :: in_data
-    integer(c_int), parameter :: n_inputs = 1
-    real(c_wp), dimension(:,:), allocatable, target :: out_data
+      integer :: i, ii, n
+      real(dp) :: start_time, end_time, start_loop_time, end_loop_time, mean_loop_time
+      real(dp), allocatable :: module_load_durations(:), module_delete_durations(:), tensor_creation_durations(:)
+      real(dp), allocatable :: tensor_deletion_durations(:), inference_durations(:), all_durations(:,:)
+      character(len=20), allocatable :: messages(:)
 
-    integer(c_int), parameter :: in_dims = 4
-    integer(c_int64_t) :: in_shape(in_dims) = [1, 3, 224, 224]
-    integer(c_int) :: in_layout(in_dims) = [1,2,3,4]
-    integer(c_int), parameter :: out_dims = 2
-    integer(c_int64_t) :: out_shape(out_dims) = [1, 1000]
-    integer(c_int) :: out_layout(out_dims) = [1,2]
+      real(c_wp), dimension(:,:,:,:), allocatable, target :: in_data
+      integer(c_int), parameter :: n_inputs = 1
+      real(c_wp), dimension(:,:), allocatable, target :: out_data
 
-    character(len=:), allocatable :: model_dir, model_name
-    character(len=128) :: msg1, msg2
-    integer :: ntimes
+      integer(c_int), parameter :: in_dims = 4
+      integer(c_int64_t) :: in_shape(in_dims) = [1, 3, 224, 224]
+      integer(c_int) :: in_layout(in_dims) = [1,2,3,4]
+      integer(c_int), parameter :: out_dims = 2
+      integer(c_int64_t) :: out_shape(out_dims) = [1, 1000]
+      integer(c_int) :: out_layout(out_dims) = [1,2]
 
-    type(torch_module) :: model
-    type(torch_tensor), dimension(1) :: in_tensor
-    type(torch_tensor) :: out_tensor
+      character(len=:), allocatable :: model_dir, model_name
+      character(len=128) :: msg1, msg2, msg3, msg4
+      integer :: ntimes
 
-    ! Binary file containing input tensor
-    character(len=*), parameter :: filename = '../resnet_model/image_tensor.dat'
+      type(torch_module) :: model
+      type(torch_tensor), dimension(1) :: in_tensor
+      type(torch_tensor) :: out_tensor
 
-    ! Length of tensor and number of categories
-    integer, parameter :: tensor_length = 150528
+      ! Binary file containing input tensor
+      character(len=*), parameter :: filename = '../resnet_model/image_tensor.dat'
 
-    ! Outputs
-    integer :: idx(2)
-    real(wp), dimension(:,:), allocatable :: probabilities
-    real(wp), parameter :: expected_prob = 0.8846225142478943
-    real(wp) :: probability
+      ! Length of tensor and number of categories
+      integer, parameter :: tensor_length = 150528
 
-    print *, "====== DIRECT COUPLED ======"
+      ! Outputs
+      integer :: idx(2)
+      real(wp), dimension(:,:), allocatable :: probabilities
+      real(wp), parameter :: expected_prob = 0.8846225142478943
+      real(wp) :: probability
 
-    call setup(model_dir, model_name, ntimes, n)
+      print *, "====== DIRECT COUPLED ======"
 
-    allocate(in_data(in_shape(1), in_shape(2), in_shape(3), in_shape(4)))
-    allocate(out_data(out_shape(1), out_shape(2)))
-    allocate(probabilities(out_shape(1), out_shape(2)))
+      call setup(model_dir, model_name, ntimes, n)
 
-    allocate(durations(ntimes, 3))
-    allocate(messages(3))
+      allocate(in_data(in_shape(1), in_shape(2), in_shape(3), in_shape(4)))
+      allocate(out_data(out_shape(1), out_shape(2)))
+      allocate(probabilities(out_shape(1), out_shape(2)))
 
-    ! ------------------------------ Start module timer ------------------------------
-    start_time = omp_get_wtime()
-    model = torch_module_load(model_dir//"/"//model_name)
-    end_time = omp_get_wtime()
-    durations(:, 1) = end_time - start_time
-    ! ------------------------------ End module timer ------------------------------
+      allocate(module_load_durations(ntimes))
+      allocate(module_delete_durations(ntimes))
+      allocate(tensor_creation_durations(ntimes))
+      allocate(tensor_deletion_durations(ntimes))
+      allocate(inference_durations(ntimes))
+      allocate(all_durations(ntimes, 5))
+      allocate(messages(5))
 
-    ! Initialise data - previously in loop, but not modified?
-    call load_data(filename, tensor_length, in_data)
+        ! Initialise timings with arbitrary large values
+      module_load_durations(:) = 100.
+      module_delete_durations(:) = 100.
+      tensor_creation_durations(:) = 100.
+      tensor_deletion_durations(ntimes) = 100.
+      inference_durations(ntimes) = 100.
+      all_durations(:, :) = 100.
+      start_loop_time = 1000.
+      end_loop_time = 3000.
+      start_time = 1000.
+      end_time = 3000.
 
-    do i = 1, ntimes
+      if (ntimes .lt. 2) then
+        write(*,*) "Error: ntimes must be at least 2"
+        return
+      end if
 
-      ! Create input and output tensors for the model.
-      ! ------------------------------ Start tensor timer ------------------------------
-      start_time = omp_get_wtime()
-      in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_wp, torch_kCPU, in_layout)
-      out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_wp, torch_kCPU, out_layout)
-      end_time = omp_get_wtime()
-      durations(i, 2) = end_time - start_time
-      ! ------------------------------ End tensor timer ------------------------------
+      ! Load model (creation/deletion timed at end)
+      model = torch_module_load(model_dir//"/"//model_name)
 
-      ! ------------------------------ Start inference timer ------------------------------
-      start_time = omp_get_wtime()
-      call torch_module_forward(model, in_tensor, n_inputs, out_tensor)
-      end_time = omp_get_wtime()
-      durations(i, 3) = end_time - start_time
-      ! ------------------------------ End inference timer ------------------------------
+      ! Initialise data - previously in loop, but not modified?
+      call load_data(filename, tensor_length, in_data)
 
-      ! Clean up.
-      ! ------------------------------ Start tensor timer ------------------------------
-      start_time = omp_get_wtime()
-      call torch_tensor_delete(out_tensor)
-      do ii = 1, n_inputs
-        call torch_tensor_delete(in_tensor(ii))
+      do i = 1, ntimes
+        if (i==2) then
+          start_loop_time = omp_get_wtime()
+        end if
+
+        ! Create input and output tensors for the model.
+        ! ------------------------------ Start tensor creation timer ------------------------------
+        start_time = omp_get_wtime()
+        in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_wp, torch_kCPU, in_layout)
+        out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_wp, torch_kCPU, out_layout)
+        end_time = omp_get_wtime()
+        tensor_creation_durations(i) = end_time - start_time
+        ! ------------------------------ End tensor creation timer ------------------------------
+
+        ! ------------------------------ Start inference timer ------------------------------
+        start_time = omp_get_wtime()
+        call torch_module_forward(model, in_tensor, n_inputs, out_tensor)
+        end_time = omp_get_wtime()
+        inference_durations(i) = end_time - start_time
+        ! ------------------------------ End inference timer -------------------------------
+
+        ! Clean up.
+        ! ------------------------------ Start tensor deletion timer ------------------------------
+        start_time = omp_get_wtime()
+        call torch_tensor_delete(out_tensor)
+        do ii = 1, n_inputs
+          call torch_tensor_delete(in_tensor(ii))
+        end do
+        end_time = omp_get_wtime()
+        tensor_deletion_durations(i) = end_time - start_time
+        ! ------------------------------ End tensor deletion timer ------------------------------
+
+        ! Calculate probabilities and output results
+        call calc_probs(out_data, probabilities)
+        idx = maxloc(probabilities)
+        probability = maxval(probabilities)
+
+        ! Check top probability matches expected value
+        call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
+
+        write(msg1, '(A, I10, A, F10.3, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
+        write(msg2, '(A, I15, A, F10.3, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
+        write(msg3, '(A, I10, A, F10.3, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
+        print *, trim(msg1)
+        print *, trim(msg2)
+        print *, trim(msg3)
       end do
-      end_time = omp_get_wtime()
-      durations(i, 2) = durations(i, 2) + (end_time - start_time)
-      ! ------------------------------ End tensor timer ------------------------------
 
-      ! Calculate probabilities and output results
-      call calc_probs(out_data, probabilities)
-      idx = maxloc(probabilities)
-      probability = maxval(probabilities)
+      end_loop_time = omp_get_wtime()
+      mean_loop_time = (end_loop_time - start_loop_time)/(ntimes - 1)
+      write(msg4, '(A, I1, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
+      print *, trim(msg4)
 
-      ! Check top probability matches expected value
-      call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
+      call torch_module_delete(model)
 
-      ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-      write(msg1, '(A, I8, A, F10.3, A)') "check iteration inference", i, " (", durations(i, 3), " s) [omp]"
-      write(msg2, '(A, I10, A, F10.3, A)') "check iteration tensors", i, " (", durations(i, 2), " s) [omp]"
-      print *, trim(msg1)
-      print *, trim(msg2)
-    end do
+      call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
 
-    ! ------------------------------ Start module timer ------------------------------
-    start_time = omp_get_wtime()
-    call torch_module_delete(model)
-    end_time = omp_get_wtime()
-    durations(:, 1) = durations(:, 1) + (end_time - start_time)
-    ! ------------------------------ End module timer ------------------------------
+      all_durations(:, 1) = module_load_durations
+      all_durations(:, 2) = module_delete_durations
+      all_durations(:, 3) = tensor_creation_durations
+      all_durations(:, 4) = tensor_deletion_durations
+      all_durations(:, 5) = inference_durations
+      messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
+      call print_all_time_stats(all_durations, messages)
 
-    messages = [character(len=20) :: "--- modules ---", "--- tensors ---", "--- forward pass ---"]
-    call print_all_time_stats(durations, messages)
-
-    deallocate(in_data)
-    deallocate(out_data)
-    deallocate(durations)
-    deallocate(messages)
-    deallocate(probabilities)
+      deallocate(in_data)
+      deallocate(out_data)
+      deallocate(module_load_durations)
+      deallocate(module_delete_durations)
+      deallocate(tensor_creation_durations)
+      deallocate(tensor_deletion_durations)
+      deallocate(inference_durations)
+      deallocate(all_durations)
+      deallocate(messages)
+      deallocate(probabilities)
 
   end subroutine main
 
@@ -185,5 +222,34 @@ program benchmark_resnet_test
     probabilities = probabilities / prob_sum
 
   end subroutine calc_probs
+
+  subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
+
+    implicit none
+
+    integer, intent(in) :: ntimes
+    real(dp), dimension(:), intent(out) :: module_load_durations, module_delete_durations
+    integer :: i
+    real(dp) :: start_time, end_time
+    character(len=*), intent(in) :: model_dir, model_name
+    type(torch_module) :: model
+
+    do i = 1, ntimes
+      ! ------------------------------ Start module load timer ------------------------------
+      start_time = omp_get_wtime()
+      model = torch_module_load(model_dir//"/"//model_name)
+      end_time = omp_get_wtime()
+      module_load_durations(i) = end_time - start_time
+      ! ------------------------------ End module load timer ------------------------------
+
+      ! ------------------------------ Start module deletion timer ------------------------------
+      start_time = omp_get_wtime()
+      call torch_module_delete(model)
+      end_time = omp_get_wtime()
+      module_delete_durations(i) = end_time - start_time
+      ! ------------------------------ End module deletion timer ------------------------------
+    end do
+
+  end subroutine time_module
 
 end program benchmark_resnet_test
