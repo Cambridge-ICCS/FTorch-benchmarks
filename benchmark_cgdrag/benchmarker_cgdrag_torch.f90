@@ -18,6 +18,8 @@ program benchmark_cgdrag_test
 
     subroutine main()
 
+    implicit none
+
     integer :: i, j, k, ii, jj, kk, n
     real(dp) :: start_time, end_time, start_loop_time, end_loop_time, mean_loop_time
     real(dp), allocatable :: module_load_duration(:), module_delete_durations(:), tensor_creation_durations(:)
@@ -130,6 +132,12 @@ program benchmark_cgdrag_test
     start_time = 1000.
     end_time = 3000.
 
+    if (ntimes .lt. 2) then
+      write(*,*) "Error: ntimes must be at least 2"
+      return
+    end if
+
+    ! Load model (creation/deletion timed at end)
     model = torch_module_load(model_dir//"/"//model_name)
 
     do j=1,J_MAX
@@ -138,11 +146,6 @@ program benchmark_cgdrag_test
         lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)*RADIAN
         psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
     end do
-
-    if (ntimes .lt. 2) then
-      write(*,*) "Error: ntimes must be at least 2"
-      return
-    end if
 
     do i = 1, ntimes
       if (i==2) then
@@ -223,21 +226,7 @@ program benchmark_cgdrag_test
     write(msg4, '(A, I1, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
     print *, trim(msg4)
 
-    do i = 1, ntimes
-      ! ------------------------------ Start module load timer ------------------------------
-      start_time = omp_get_wtime()
-      model = torch_module_load(model_dir//"/"//model_name)
-      end_time = omp_get_wtime()
-      module_load_duration(i) = end_time - start_time
-      ! ------------------------------ End module load timer ------------------------------
-
-      ! ------------------------------ Start module deletion timer ------------------------------
-      start_time = omp_get_wtime()
-      call torch_module_delete(model)
-      end_time = omp_get_wtime()
-      module_delete_durations(i) = module_delete_durations(i) + (end_time - start_time)
-      ! ------------------------------ End module deletion timer ------------------------------
-    end do
+    call time_module(ntimes, model_dir, model_name, module_load_duration, module_delete_durations)
 
     all_durations(:, 1) = module_load_duration
     all_durations(:, 2) = module_delete_durations
@@ -270,5 +259,35 @@ program benchmark_cgdrag_test
     deallocate(gwfcng_y_ref)
 
     end subroutine main
+
+    subroutine time_module(ntimes, model_dir, model_name, module_load_duration, module_delete_durations)
+
+      implicit none
+
+      integer, intent(in) :: ntimes
+      real(dp), dimension(:), intent(out) :: module_load_duration, module_delete_durations
+      integer :: i
+      real(dp) :: start_time, end_time
+      character(len=*), intent(in) :: model_dir, model_name
+      type(torch_module) :: model
+
+      do i = 1, ntimes
+        ! ------------------------------ Start module load timer ------------------------------
+        start_time = omp_get_wtime()
+        model = torch_module_load(model_dir//"/"//model_name)
+        end_time = omp_get_wtime()
+        module_load_duration(i) = end_time - start_time
+        ! ------------------------------ End module load timer ------------------------------
+
+        ! ------------------------------ Start module deletion timer ------------------------------
+        start_time = omp_get_wtime()
+        call torch_module_delete(model)
+        end_time = omp_get_wtime()
+        module_delete_durations(i) = end_time - start_time
+        ! ------------------------------ End module deletion timer ------------------------------
+      end do
+
+    end subroutine time_module
+
 
 end program benchmark_cgdrag_test
