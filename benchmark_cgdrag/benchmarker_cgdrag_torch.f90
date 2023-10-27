@@ -40,17 +40,18 @@ program benchmark_cgdrag_test
 
       integer(c_int), parameter :: n_inputs = 3
 
-      ! Shape is the shape of the tensor we want to go into the torch
-      ! Stride is the mapping between the underlying data and the array
-      integer(c_int), parameter :: dims_2D = 2
-      integer(c_int64_t) :: shape_2D(dims_2D) = [I_MAX*J_MAX, K_MAX]
-      integer(c_int) :: stride_2D(dims_2D) = [1,2]
+      integer, parameter :: config = 2
+
       integer(c_int), parameter :: dims_1D = 2
-      integer(c_int64_t) :: shape_1D(dims_1D) = [I_MAX*J_MAX, 1]
-      integer(c_int) :: stride_1D(dims_1D) = [1,2]
+      integer(c_int), parameter :: dims_2D = 2
       integer(c_int), parameter :: dims_out = 2
-      integer(c_int64_t) :: shape_out(dims_out) = [I_MAX*J_MAX, K_MAX]
-      integer(c_int) :: stride_out(dims_out) = [1,2]
+
+      integer(c_int64_t) :: shape_2D(dims_2D)
+      integer(c_int) :: stride_2D(dims_2D)
+      integer(c_int64_t) :: shape_1D(dims_1D)
+      integer(c_int) :: stride_1D(dims_1D)
+      integer(c_int64_t) :: shape_out(dims_out)
+      integer(c_int) :: stride_out(dims_out)
 
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4
@@ -59,6 +60,32 @@ program benchmark_cgdrag_test
       type(torch_module) :: model
       type(torch_tensor), dimension(n_inputs) :: in_tensors
       type(torch_tensor) :: gwfcng_x_tensor, gwfcng_y_tensor
+
+      ! Shape is the shape of the tensor we want to go into the torch
+      ! Stride is the mapping between the underlying data and the array
+      if (config == 1 .or. config == 2) then
+        ! Match forpy
+        ! Input and output tensors are Fortran-indexed
+        ! For config == 1, output tensor must be reshaped to unflatten, but forward pass should be equivalent
+        shape_2D = [I_MAX*J_MAX, K_MAX]
+        stride_2D = [1, 2]
+        shape_1D = [I_MAX*J_MAX, 1]
+        stride_1D = [1, 2]
+        shape_out = [I_MAX*J_MAX, K_MAX]
+        stride_out = [1, 2]
+      else if (config == 3) then
+        ! Input and output tensors passed C-indexed
+        ! Reshaping of both inputs and outputs is required
+        shape_2D = [K_MAX, I_MAX*J_MAX]
+        stride_2D = [2, 1]
+        shape_1D = [1, I_MAX*J_MAX]
+        stride_1D = [2, 1]
+        shape_out = [I_MAX*J_MAX, K_MAX]
+        stride_out = [2, 1]
+      else
+        write(*,*) "Invalid config"
+        return
+      end if
 
       print *, "====== DIRECT COUPLED ======"
 
@@ -81,12 +108,20 @@ program benchmark_cgdrag_test
       allocate(psfc(I_MAX, J_MAX))
 
       ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
-      allocate( uuu_flattened(I_MAX*J_MAX, K_MAX) )
-      allocate( vvv_flattened(I_MAX*J_MAX, K_MAX) )
-      allocate( lat_reshaped(I_MAX*J_MAX, 1) )
-      allocate( psfc_reshaped(I_MAX*J_MAX, 1) )
-      allocate( gwfcng_x_flattened(I_MAX*J_MAX, K_MAX) )
-      allocate( gwfcng_y_flattened(I_MAX*J_MAX, K_MAX) )
+      allocate(uuu_flattened(I_MAX * J_MAX, K_MAX))
+      allocate(vvv_flattened(I_MAX * J_MAX, K_MAX))
+      allocate(lat_reshaped(I_MAX * J_MAX, 1))
+      allocate(psfc_reshaped(I_MAX * J_MAX, 1))
+
+      if (config == 1) then
+        allocate(gwfcng_x_flattened(I_MAX * J_MAX, K_MAX))
+        allocate(gwfcng_y_flattened(I_MAX * J_MAX, K_MAX))
+      end if
+
+      if (config == 3) then
+        allocate(gwfcng_x_flattened(K_MAX, I_MAX * J_MAX))
+        allocate(gwfcng_y_flattened(K_MAX, I_MAX * J_MAX))
+      end if
 
       ! Read in saved input (and output) values
       open(10, file='../cgdrag_model/uuu.txt')
@@ -108,10 +143,10 @@ program benchmark_cgdrag_test
       ! Read in reference data
       allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
       allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
-      open(14,file="../cgdrag_model/forpy_reference_x.txt")
-      open(15,file="../cgdrag_model/forpy_reference_y.txt")
-      read(14,*) gwfcng_x_ref
-      read(15,*) gwfcng_y_ref
+      open(14, file="../cgdrag_model/forpy_reference_x.txt")
+      open(15, file="../cgdrag_model/forpy_reference_y.txt")
+      read(14, *) gwfcng_x_ref
+      read(15, *) gwfcng_y_ref
 
       close(10)
       close(11)
@@ -133,7 +168,7 @@ program benchmark_cgdrag_test
       end_time = 3000.
 
       if (ntimes .lt. 2) then
-        write(*,*) "Error: ntimes must be at least 2"
+        write(*, *) "Error: ntimes must be at least 2"
         return
       end if
 
@@ -141,10 +176,10 @@ program benchmark_cgdrag_test
       model = torch_module_load(model_dir//"/"//model_name)
 
       do j=1,J_MAX
-          uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
-          vvv_flattened((j-1)*I_MAX+1:j*I_MAX,:) = vvv(:,j,:)
-          lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)*RADIAN
-          psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
+          uuu_flattened((j - 1) * I_MAX + 1:j * I_MAX, :) = uuu(:, j, :)
+          vvv_flattened((j - 1) * I_MAX + 1:j * I_MAX,:) = vvv(:, j, :)
+          lat_reshaped((j - 1) * I_MAX + 1:j * I_MAX, 1) = lat(:, j) * RADIAN
+          psfc_reshaped((j - 1) * I_MAX + 1:j * I_MAX, 1) = psfc(:, j)
       end do
 
       do i = 1, ntimes
@@ -160,8 +195,13 @@ program benchmark_cgdrag_test
 
         ! Zonal
         in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
-        gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
-        end_time = omp_get_wtime()
+
+        if (config == 1 .or. config == 3) then
+          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        else
+          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        end if
+          end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
         ! ------------------------------ End tensor creation timer ------------------------------
 
@@ -177,7 +217,11 @@ program benchmark_cgdrag_test
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
         in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
-        gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        if (config == 1 .or. config == 3) then
+          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        else
+          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        end if
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = tensor_creation_durations(i) + (end_time - start_time)
         ! ------------------------------ End tensor creation timer ------------------------------
@@ -191,10 +235,12 @@ program benchmark_cgdrag_test
         ! ------------------------------ End inference timer ------------------------------
 
         ! Reshape, and assign to gwfcng
-        do j=1,J_MAX
-          gwfcng_x(:,j,:) = gwfcng_x_flattened((j-1)*I_MAX+1:j*I_MAX,:)
-          gwfcng_y(:,j,:) = gwfcng_y_flattened((j-1)*I_MAX+1:j*I_MAX,:)
-        end do
+        if (config == 1) then
+          do j=1, J_MAX
+            gwfcng_x(:, j, :) = gwfcng_x_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+            gwfcng_y(:, j, :) = gwfcng_y_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+          end do
+        end if
 
         ! Clean up.
         ! ------------------------------ Start tensor deletion timer ------------------------------
@@ -252,8 +298,10 @@ program benchmark_cgdrag_test
       deallocate(vvv_flattened)
       deallocate(lat_reshaped)
       deallocate(psfc_reshaped)
-      deallocate(gwfcng_x_flattened)
-      deallocate(gwfcng_y_flattened)
+      if (config == 1 .or. config == 3) then
+        deallocate(gwfcng_x_flattened)
+        deallocate(gwfcng_y_flattened)
+      end if
       deallocate(gwfcng_x_ref)
       deallocate(gwfcng_y_ref)
 
