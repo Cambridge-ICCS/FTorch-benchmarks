@@ -15,8 +15,9 @@ program benchmark_cgdrag_test
   integer, parameter :: wp = dp
 
   integer :: i, j, k, ii, jj, kk, n
-  real(dp) :: start_time, end_time
-  real(dp), allocatable :: durations(:,:)
+  real(dp) :: start_time, end_time, start_loop_time, end_loop_time, mean_loop_time
+  real(dp), allocatable ::   module_load_duration(:), module_delete_durations(:), tensor_creation_durations(:)
+  real(dp), allocatable ::   tensor_deletion_durations(:), inference_durations(:), all_durations(:,:)
   character(len=20), allocatable :: messages(:)
 
   integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
@@ -42,7 +43,7 @@ program benchmark_cgdrag_test
 #endif
 
   character(len=:), allocatable :: model_dir, model_name
-  character(len=128) :: msg1, msg2
+  character(len=128) :: msg1, msg2, msg3, msg4
   integer :: ntimes
 
   type(ndarray) :: uuu_nd, vvv_nd, gwfcng_x_nd, gwfcng_y_nd, lat_nd, psfc_nd
@@ -51,8 +52,13 @@ program benchmark_cgdrag_test
 
   call setup(model_dir, model_name, ntimes, n)
 
-  allocate(durations(ntimes, 3))
-  allocate(messages(3))
+  allocate(module_load_duration(ntimes))
+  allocate(module_delete_durations(ntimes))
+  allocate(tensor_creation_durations(ntimes))
+  allocate(tensor_deletion_durations(ntimes))
+  allocate(inference_durations(ntimes))
+  allocate(all_durations(ntimes, 5))
+  allocate(messages(5))
 
   ! Read gravity wave parameterisation data in from file
   allocate(uuu(I_MAX, J_MAX, K_MAX))
@@ -102,8 +108,6 @@ program benchmark_cgdrag_test
   close(14)
   close(15)
 
-  ! ------------------------------ Start module timer ------------------------------
-  start_time = omp_get_wtime()
   ie = forpy_initialize()
   ie = str_create(py_model_dir, trim(model_dir))
   ie = get_sys_path(paths)
@@ -129,26 +133,26 @@ program benchmark_cgdrag_test
   ! use python module `run_emulator` to load a trained model
   ie = call_py(model, run_emulator, "initialize")
 #endif
-  end_time = omp_get_wtime()
-  durations(:, 1) = end_time - start_time
-  ! ------------------------------ End module timer ------------------------------
 
   if (ie .ne. 0) then
       call err_print
       call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
   end if
 
-  do i = 1, ntimes
+  do j = 1, J_MAX
+    uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
+    vvv_flattened((j-1)*I_MAX+1:j*I_MAX,:) = vvv(:,j,:)
+    lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)*RADIAN
+    psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
+end do
 
-    do j=1,J_MAX
-        uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
-        vvv_flattened((j-1)*I_MAX+1:j*I_MAX,:) = vvv(:,j,:)
-        lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)*RADIAN
-        psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
-    end do
+  do i = 1, ntimes
+    if (i==2) then
+      start_loop_time = omp_get_wtime()
+    end if
 
     ! creates numpy arrays
-    ! ------------------------------ Start tensor timer ------------------------------
+    ! ------------------------------ Start tensor creation timer ------------------------------
     start_time = omp_get_wtime()
     ie = ndarray_create_nocopy(uuu_nd, uuu_flattened)
     ie = ndarray_create_nocopy(vvv_nd, vvv_flattened)
@@ -166,14 +170,14 @@ program benchmark_cgdrag_test
     ie = args%setitem(4, gwfcng_x_nd)
     ie = args%setitem(5, J_MAX)
     end_time = omp_get_wtime()
-    durations(i, 2) = end_time - start_time
-    ! ------------------------------ End tensor timer ------------------------------
+    tensor_creation_durations(i) = end_time - start_time
+    ! ------------------------------ End tensor creation timer ------------------------------
 
     ! ------------------------------ Start inference timer ------------------------------
     start_time = omp_get_wtime()
     ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
     end_time = omp_get_wtime()
-    durations(i, 3) = end_time - start_time
+    inference_durations(i) = end_time - start_time
     ! ------------------------------ End inference timer ------------------------------
 
     if (ie .ne. 0) then
@@ -182,19 +186,19 @@ program benchmark_cgdrag_test
     end if
 
     ! create model input args as tuple
-    ! ------------------------------ Start tensor timer ------------------------------
+    ! ------------------------------ Start tensor creation timer ------------------------------
     start_time = omp_get_wtime()
     ie = args%setitem(1, vvv_nd)
     ie = args%setitem(4, gwfcng_y_nd)
     end_time = omp_get_wtime()
-    durations(i, 2) = durations(i, 2) + (end_time - start_time)
-    ! ------------------------------ End tensor timer ------------------------------
+    tensor_creation_durations(i) = tensor_creation_durations(i) + (end_time - start_time)
+    ! ------------------------------ End tensor creation timer ------------------------------
 
     ! ------------------------------ Start inference timer ------------------------------
     start_time = omp_get_wtime()
     ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
     end_time = omp_get_wtime()
-    durations(i, 3) = durations(i, 3) + (end_time - start_time)
+    inference_durations(i) = inference_durations(i) + (end_time - start_time)
     ! ------------------------------ End inference timer ------------------------------
 
     if (ie .ne. 0) then
@@ -209,7 +213,7 @@ program benchmark_cgdrag_test
     end do
 
     ! Clean up.
-    ! ------------------------------ Start tensor timer ------------------------------
+    ! ------------------------------ Start tensor deletion timer ------------------------------
     start_time = omp_get_wtime()
     call uuu_nd%destroy
     call vvv_nd%destroy
@@ -219,31 +223,85 @@ program benchmark_cgdrag_test
     call psfc_nd%destroy
     call args%destroy
     end_time = omp_get_wtime()
-    durations(i, 2) = durations(i, 2) + (end_time - start_time)
-    ! ------------------------------ End tensor timer ------------------------------
+    tensor_deletion_durations(i) = end_time - start_time
+    ! ------------------------------ End tensor deletion timer ------------------------------
 
     ! Check error
     call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-8_wp)
     call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-8_wp)
 
-    ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-    write(msg1, '(A, I8, A, F10.3, A)') "check iteration inference", i, " (", durations(i, 3), " s) [omp]"
-    write(msg2, '(A, I10, A, F10.3, A)') "check iteration tensors", i, " (", durations(i, 2), " s) [omp]"
+    write(msg1, '(A, I10, A, F10.3, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
+    write(msg2, '(A, I15, A, F10.3, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
+    write(msg3, '(A, I10, A, F10.3, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
     print *, trim(msg1)
     print *, trim(msg2)
+    print *, trim(msg3)
 
   end do
 
-  ! ------------------------------ Start module timer ------------------------------
-  start_time = omp_get_wtime()
-  end_time = omp_get_wtime()
-  durations(:, 1) = durations(:, 1) + (end_time - start_time)
-  ! ------------------------------ End module timer ------------------------------
+  end_loop_time = omp_get_wtime()
+  mean_loop_time = (end_loop_time - start_loop_time)/(ntimes - 1)
+  write(msg4, '(A, I1, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
+  print *, trim(msg4)
 
-  messages = [character(len=20) :: "--- modules ---", "--- tensors ---", "--- forward pass ---"]
-  call print_all_time_stats(durations, messages)
+  do i = 1, ntimes
+    ! ------------------------------ Start module load timer ------------------------------
+    start_time = omp_get_wtime()
+    ie = forpy_initialize()
+    ie = str_create(py_model_dir, trim(model_dir))
+    ie = get_sys_path(paths)
+    ie = paths%append(py_model_dir)
 
-  deallocate(durations)
+    ! import python modules to `run_emulator`
+    ie = import_py(run_emulator, trim(model_name))
+    if (ie .ne. 0) then
+        call err_print
+        call error_mesg(__FILE__, __LINE__, "forpy model not loaded")
+    end if
+
+#ifdef USETS
+    print *, "load torchscript model"
+    ! load torchscript saved model
+    ie = tuple_create(args,1)
+    ie = str_create(filename, trim(model_dir//'/saved_cgdrag_model_cpu.pt'))
+    ie = args%setitem(0, filename)
+    ie = call_py(model, run_emulator, "initialize_ts", args)
+    call args%destroy
+#else
+    print *, "generate model in python runtime"
+    ! use python module `run_emulator` to load a trained model
+    ie = call_py(model, run_emulator, "initialize")
+#endif
+    end_time = omp_get_wtime()
+    module_load_duration(i) = end_time - start_time
+    ! ------------------------------ End module load timer ------------------------------
+
+    if (ie .ne. 0) then
+        call err_print
+        call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
+    end if
+
+    ! ------------------------------ Start module deletion timer ------------------------------
+    start_time = omp_get_wtime()
+    end_time = omp_get_wtime()
+    module_delete_durations(i) = module_delete_durations(i) + (end_time - start_time)
+    ! ------------------------------ End module deletion timer ------------------------------
+  end do
+
+  all_durations(:, 1) = module_load_duration
+  all_durations(:, 2) = module_delete_durations
+  all_durations(:, 3) = tensor_creation_durations
+  all_durations(:, 4) = tensor_deletion_durations
+  all_durations(:, 5) = inference_durations
+  messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
+  call print_all_time_stats(all_durations, messages)
+
+  deallocate(module_load_duration)
+  deallocate(module_delete_durations)
+  deallocate(tensor_creation_durations)
+  deallocate(tensor_deletion_durations)
+  deallocate(inference_durations)
+  deallocate(all_durations)
   deallocate(messages)
   deallocate(uuu)
   deallocate(vvv)
