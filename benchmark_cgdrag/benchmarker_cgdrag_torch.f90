@@ -118,6 +118,18 @@ program benchmark_cgdrag_test
     close(14)
     close(15)
 
+  ! Initialise timings with arbitrary large values
+    module_load_duration(:) = 100.
+    module_delete_durations(:) = 100.
+    tensor_creation_durations(:) = 100.
+    tensor_deletion_durations(ntimes) = 100.
+    inference_durations(ntimes) = 100.
+    all_durations(:, :) = 100.
+    start_loop_time = 1000.
+    end_loop_time = 3000.
+    start_time = 1000.
+    end_time = 3000.
+
     model = torch_module_load(model_dir//"/"//model_name)
 
     do j=1,J_MAX
@@ -126,6 +138,11 @@ program benchmark_cgdrag_test
         lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)*RADIAN
         psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
     end do
+
+    if (ntimes .lt. 2) then
+      write(*,*) "Error: ntimes must be at least 2"
+      return
+    end if
 
     do i = 1, ntimes
       if (i==2) then
