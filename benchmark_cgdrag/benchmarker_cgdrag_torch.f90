@@ -22,7 +22,7 @@ program benchmark_cgdrag_test
 
     integer :: i, j, k, ii, jj, kk, n
     real(dp) :: start_time, end_time, start_loop_time, end_loop_time, mean_loop_time
-    real(dp), allocatable :: module_load_duration(:), module_delete_durations(:), tensor_creation_durations(:)
+    real(dp), allocatable :: module_load_durations(:), module_delete_durations(:), tensor_creation_durations(:)
     real(dp), allocatable :: tensor_deletion_durations(:), inference_durations(:), all_durations(:,:)
     character(len=50), allocatable :: messages(:)
 
@@ -64,7 +64,7 @@ program benchmark_cgdrag_test
 
     call setup(model_dir, model_name, ntimes, n)
 
-    allocate(module_load_duration(ntimes))
+    allocate(module_load_durations(ntimes))
     allocate(module_delete_durations(ntimes))
     allocate(tensor_creation_durations(ntimes))
     allocate(tensor_deletion_durations(ntimes))
@@ -121,7 +121,7 @@ program benchmark_cgdrag_test
     close(15)
 
   ! Initialise timings with arbitrary large values
-    module_load_duration(:) = 100.
+    module_load_durations(:) = 100.
     module_delete_durations(:) = 100.
     tensor_creation_durations(:) = 100.
     tensor_deletion_durations(ntimes) = 100.
@@ -218,7 +218,6 @@ program benchmark_cgdrag_test
       print *, trim(msg1)
       print *, trim(msg2)
       print *, trim(msg3)
-
     end do
 
     end_loop_time = omp_get_wtime()
@@ -226,9 +225,9 @@ program benchmark_cgdrag_test
     write(msg4, '(A, I1, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
     print *, trim(msg4)
 
-    call time_module(ntimes, model_dir, model_name, module_load_duration, module_delete_durations)
+    call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
 
-    all_durations(:, 1) = module_load_duration
+    all_durations(:, 1) = module_load_durations
     all_durations(:, 2) = module_delete_durations
     all_durations(:, 3) = tensor_creation_durations
     all_durations(:, 4) = tensor_deletion_durations
@@ -236,7 +235,7 @@ program benchmark_cgdrag_test
     messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
     call print_all_time_stats(all_durations, messages)
 
-    deallocate(module_load_duration)
+    deallocate(module_load_durations)
     deallocate(module_delete_durations)
     deallocate(tensor_creation_durations)
     deallocate(tensor_deletion_durations)
@@ -260,12 +259,12 @@ program benchmark_cgdrag_test
 
     end subroutine main
 
-    subroutine time_module(ntimes, model_dir, model_name, module_load_duration, module_delete_durations)
+    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
 
       implicit none
 
       integer, intent(in) :: ntimes
-      real(dp), dimension(:), intent(out) :: module_load_duration, module_delete_durations
+      real(dp), dimension(:), intent(inout) :: module_load_durations, module_delete_durations
       integer :: i
       real(dp) :: start_time, end_time
       character(len=*), intent(in) :: model_dir, model_name
@@ -276,7 +275,7 @@ program benchmark_cgdrag_test
         start_time = omp_get_wtime()
         model = torch_module_load(model_dir//"/"//model_name)
         end_time = omp_get_wtime()
-        module_load_duration(i) = end_time - start_time
+        module_load_durations(i) = end_time - start_time
         ! ------------------------------ End module load timer ------------------------------
 
         ! ------------------------------ Start module deletion timer ------------------------------

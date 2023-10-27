@@ -24,8 +24,8 @@ program benchmark_cgdrag_test
 
     integer :: i, j, k, ii, jj, kk, n
     real(dp) :: start_time, end_time, start_loop_time, end_loop_time, mean_loop_time
-    real(dp), allocatable ::   module_load_duration(:), module_delete_durations(:), tensor_creation_durations(:)
-    real(dp), allocatable ::   tensor_deletion_durations(:), inference_durations(:), all_durations(:,:)
+    real(dp), allocatable :: module_load_durations(:), module_delete_durations(:), tensor_creation_durations(:)
+    real(dp), allocatable :: tensor_deletion_durations(:), inference_durations(:), all_durations(:,:)
     character(len=20), allocatable :: messages(:)
 
     integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
@@ -42,13 +42,8 @@ program benchmark_cgdrag_test
 
     integer :: ie
     type(module_py) :: run_emulator
-    type(list) :: paths
     type(object) :: model
     type(tuple) :: args
-    type(str) :: py_model_dir
-#ifdef USETS
-    type(str) :: filename
-#endif
 
     character(len=:), allocatable :: model_dir, model_name
     character(len=128) :: msg1, msg2, msg3, msg4
@@ -60,7 +55,7 @@ program benchmark_cgdrag_test
 
     call setup(model_dir, model_name, ntimes, n)
 
-    allocate(module_load_duration(ntimes))
+    allocate(module_load_durations(ntimes))
     allocate(module_delete_durations(ntimes))
     allocate(tensor_creation_durations(ntimes))
     allocate(tensor_deletion_durations(ntimes))
@@ -117,7 +112,7 @@ program benchmark_cgdrag_test
     close(15)
 
     ! Initialise timings with arbitrary large values
-    module_load_duration(:) = 100.
+    module_load_durations(:) = 100.
     module_delete_durations(:) = 100.
     tensor_creation_durations(:) = 100.
     tensor_deletion_durations(ntimes) = 100.
@@ -134,31 +129,7 @@ program benchmark_cgdrag_test
     end if
 
     ! Load model (creation/deletion timed at end)
-    ie = forpy_initialize()
-    ie = str_create(py_model_dir, trim(model_dir))
-    ie = get_sys_path(paths)
-    ie = paths%append(py_model_dir)
-
-    ! import python modules to `run_emulator`
-    ie = import_py(run_emulator, trim(model_name))
-    if (ie .ne. 0) then
-        call err_print
-        call error_mesg(__FILE__, __LINE__, "forpy model not loaded")
-    end if
-
-#ifdef USETS
-    print *, "load torchscript model"
-    ! load torchscript saved model
-    ie = tuple_create(args,1)
-    ie = str_create(filename, trim(model_dir//'/saved_cgdrag_model_cpu.pt'))
-    ie = args%setitem(0, filename)
-    ie = call_py(model, run_emulator, "initialize_ts", args)
-    call args%destroy
-#else
-    print *, "generate model in python runtime"
-    ! use python module `run_emulator` to load a trained model
-    ie = call_py(model, run_emulator, "initialize")
-#endif
+    call load_module(model_dir, model_name, run_emulator, model)
 
     do j = 1, J_MAX
       uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
@@ -167,12 +138,8 @@ program benchmark_cgdrag_test
       psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
     end do
 
-    if (ntimes .lt. 2) then
-      call err_print
-      call error_mesg(__FILE__, __LINE__, "ntimes must be at least 2")
-    end if
-
     do i = 1, ntimes
+
       if (i==2) then
         start_loop_time = omp_get_wtime()
       end if
@@ -262,7 +229,6 @@ program benchmark_cgdrag_test
       print *, trim(msg1)
       print *, trim(msg2)
       print *, trim(msg3)
-
     end do
 
     end_loop_time = omp_get_wtime()
@@ -270,9 +236,9 @@ program benchmark_cgdrag_test
     write(msg4, '(A, I1, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
     print *, trim(msg4)
 
-    call time_module(ntimes, model_dir, model_name, module_load_duration, module_delete_durations)
+    call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations, run_emulator, model)
 
-    all_durations(:, 1) = module_load_duration
+    all_durations(:, 1) = module_load_durations
     all_durations(:, 2) = module_delete_durations
     all_durations(:, 3) = tensor_creation_durations
     all_durations(:, 4) = tensor_deletion_durations
@@ -280,7 +246,7 @@ program benchmark_cgdrag_test
     messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
     call print_all_time_stats(all_durations, messages)
 
-    deallocate(module_load_duration)
+    deallocate(module_load_durations)
     deallocate(module_delete_durations)
     deallocate(tensor_creation_durations)
     deallocate(tensor_deletion_durations)
@@ -304,21 +270,45 @@ program benchmark_cgdrag_test
 
     end subroutine main
 
-    subroutine time_module(ntimes, model_dir, model_name, module_load_duration, module_delete_durations)
+    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations, run_emulator, model)
 
       implicit none
 
       integer, intent(in) :: ntimes
-      real(dp), dimension(:) :: module_load_duration, module_delete_durations
+      character(len=*), intent(in) :: model_dir, model_name
+      real(dp), dimension(:), intent(inout) :: module_load_durations, module_delete_durations
+      type(module_py), intent(out) :: run_emulator
+      type(object), intent(out) :: model
+
       integer :: i
       real(dp) :: start_time, end_time
+
+      do i = 1, ntimes
+        ! ------------------------------ Start module load timer ------------------------------
+        start_time = omp_get_wtime()
+        call load_module(model_dir, model_name, run_emulator, model)
+        end_time = omp_get_wtime()
+        module_load_durations(i) = end_time - start_time
+        ! ------------------------------ End module load timer ------------------------------
+
+        ! ------------------------------ Start module deletion timer ------------------------------
+        module_delete_durations(i) = 0.
+        ! ------------------------------ End module deletion timer ------------------------------
+      end do
+
+    end subroutine time_module
+
+    subroutine load_module(model_dir, model_name, run_emulator, model)
+
+      implicit none
+
       character(len=*), intent(in) :: model_dir, model_name
+      type(module_py), intent(out) :: run_emulator
+      type(object), intent(out) :: model
 
       integer :: ie
-      type(module_py) :: run_emulator
-      type(list) :: paths
-      type(object) :: model
       type(tuple) :: args
+      type(list) :: paths
       type(str) :: py_model_dir
 #ifdef USETS
       type(str) :: filename
@@ -327,48 +317,35 @@ program benchmark_cgdrag_test
       print *, "generate model in python runtime"
 #endif
 
-      do i = 1, ntimes
-        ! ------------------------------ Start module load timer ------------------------------
-        start_time = omp_get_wtime()
-        ie = forpy_initialize()
-        ie = str_create(py_model_dir, trim(model_dir))
-        ie = get_sys_path(paths)
-        ie = paths%append(py_model_dir)
+      ie = forpy_initialize()
+      ie = str_create(py_model_dir, trim(model_dir))
+      ie = get_sys_path(paths)
+      ie = paths%append(py_model_dir)
 
-        ! import python modules to `run_emulator`
-        ie = import_py(run_emulator, trim(model_name))
-        if (ie .ne. 0) then
-            call err_print
-            call error_mesg(__FILE__, __LINE__, "forpy model not loaded")
-        end if
+      ! import python modules to `run_emulator`
+      ie = import_py(run_emulator, trim(model_name))
+      if (ie .ne. 0) then
+          call err_print
+          call error_mesg(__FILE__, __LINE__, "forpy model not loaded")
+      end if
 
 #ifdef USETS
-        ! load torchscript saved model
-        ie = tuple_create(args,1)
-        ie = str_create(filename, trim(model_dir//'/saved_cgdrag_model_cpu.pt'))
-        ie = args%setitem(0, filename)
-        ie = call_py(model, run_emulator, "initialize_ts", args)
-        call args%destroy
+      ! load torchscript saved model
+      ie = tuple_create(args,1)
+      ie = str_create(filename, trim(model_dir//"/"//model_name))
+      ie = args%setitem(0, filename)
+      ie = call_py(model, run_emulator, "initialize_ts", args)
+      call args%destroy
 #else
-        ! use python module `run_emulator` to load a trained model
-        ie = call_py(model, run_emulator, "initialize")
+      ! use python module `run_emulator` to load a trained model
+      ie = call_py(model, run_emulator, "initialize")
 #endif
-        end_time = omp_get_wtime()
-        module_load_duration(i) = end_time - start_time
-        ! ------------------------------ End module load timer ------------------------------
 
-        if (ie .ne. 0) then
-            call err_print
-            call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
-        end if
+      if (ie .ne. 0) then
+          call err_print
+          call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
+      end if
 
-        ! ------------------------------ Start module deletion timer ------------------------------
-        start_time = omp_get_wtime()
-        end_time = omp_get_wtime()
-        module_delete_durations(i) = end_time - start_time
-        ! ------------------------------ End module deletion timer ------------------------------
-      end do
-
-    end subroutine time_module
+    end subroutine load_module
 
 end program benchmark_cgdrag_test
