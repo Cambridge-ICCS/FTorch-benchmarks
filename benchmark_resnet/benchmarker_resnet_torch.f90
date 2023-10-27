@@ -98,6 +98,7 @@ program benchmark_resnet_test
       call load_data(filename, tensor_length, in_data)
 
       do i = 1, ntimes
+
         if (i==2) then
           start_loop_time = omp_get_wtime()
         end if
@@ -150,6 +151,7 @@ program benchmark_resnet_test
       write(msg4, '(A, I1, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
       print *, trim(msg4)
 
+      ! Delete model (creation/deletion timed at end)
       call torch_module_delete(model)
 
       call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
@@ -173,83 +175,83 @@ program benchmark_resnet_test
       deallocate(messages)
       deallocate(probabilities)
 
-  end subroutine main
+    end subroutine main
 
-  subroutine load_data(filename, tensor_length, in_data)
+    subroutine load_data(filename, tensor_length, in_data)
 
-    implicit none
+      implicit none
 
-    character(len=*), intent(in) :: filename
-    integer, intent(in) :: tensor_length
-    real(c_wp), dimension(:,:,:,:), intent(out) :: in_data
+      character(len=*), intent(in) :: filename
+      integer, intent(in) :: tensor_length
+      real(c_wp), dimension(:,:,:,:), intent(out) :: in_data
 
-    real(c_wp) :: flat_data(tensor_length)
-    integer :: ios
-    character(len=100) :: ioerrmsg
+      real(c_wp) :: flat_data(tensor_length)
+      integer :: ios
+      character(len=100) :: ioerrmsg
 
-    ! Read input tensor from Python script
-    open(unit=10, file=filename, status='old', access='stream', form='unformatted', action="read", iostat=ios, iomsg=ioerrmsg)
-    if (ios /= 0) then
-    print *, ioerrmsg
-    stop 1
-    end if
+      ! Read input tensor from Python script
+      open(unit=10, file=filename, status='old', access='stream', form='unformatted', action="read", iostat=ios, iomsg=ioerrmsg)
+      if (ios /= 0) then
+      print *, ioerrmsg
+      stop 1
+      end if
 
-    read(10, iostat=ios, iomsg=ioerrmsg) flat_data
-    if (ios /= 0) then
-        print *, ioerrmsg
-        stop 1
-    end if
+      read(10, iostat=ios, iomsg=ioerrmsg) flat_data
+      if (ios /= 0) then
+          print *, ioerrmsg
+          stop 1
+      end if
 
-    close(10)
+      close(10)
 
-    ! Reshape data to tensor input shape
-    ! This assumes the data from Python was transposed before saving
-    in_data = reshape(flat_data, shape(in_data))
+      ! Reshape data to tensor input shape
+      ! This assumes the data from Python was transposed before saving
+      in_data = reshape(flat_data, shape(in_data))
 
-  end subroutine load_data
+    end subroutine load_data
 
-  subroutine calc_probs(out_data, probabilities)
+    subroutine calc_probs(out_data, probabilities)
 
-    implicit none
+      implicit none
 
-    real(c_wp), dimension(:,:), intent(in) :: out_data
-    real(wp), dimension(:,:), intent(out) :: probabilities
-    real(wp) :: prob_sum
+      real(c_wp), dimension(:,:), intent(in) :: out_data
+      real(wp), dimension(:,:), intent(out) :: probabilities
+      real(wp) :: prob_sum
 
-    ! Apply softmax function to calculate probabilties
-    probabilities = exp(out_data)
-    prob_sum = sum(probabilities)
-    probabilities = probabilities / prob_sum
+      ! Apply softmax function to calculate probabilties
+      probabilities = exp(out_data)
+      prob_sum = sum(probabilities)
+      probabilities = probabilities / prob_sum
 
-  end subroutine calc_probs
+    end subroutine calc_probs
 
-  subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
+    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
 
-    implicit none
+      implicit none
 
-    integer, intent(in) :: ntimes
-    real(dp), dimension(:), intent(out) :: module_load_durations, module_delete_durations
-    integer :: i
-    real(dp) :: start_time, end_time
-    character(len=*), intent(in) :: model_dir, model_name
-    type(torch_module) :: model
+      integer, intent(in) :: ntimes
+      real(dp), dimension(:), intent(out) :: module_load_durations, module_delete_durations
+      integer :: i
+      real(dp) :: start_time, end_time
+      character(len=*), intent(in) :: model_dir, model_name
+      type(torch_module) :: model
 
-    do i = 1, ntimes
-      ! ------------------------------ Start module load timer ------------------------------
-      start_time = omp_get_wtime()
-      model = torch_module_load(model_dir//"/"//model_name)
-      end_time = omp_get_wtime()
-      module_load_durations(i) = end_time - start_time
-      ! ------------------------------ End module load timer ------------------------------
+      do i = 1, ntimes
+        ! ------------------------------ Start module load timer ------------------------------
+        start_time = omp_get_wtime()
+        model = torch_module_load(model_dir//"/"//model_name)
+        end_time = omp_get_wtime()
+        module_load_durations(i) = end_time - start_time
+        ! ------------------------------ End module load timer ------------------------------
 
-      ! ------------------------------ Start module deletion timer ------------------------------
-      start_time = omp_get_wtime()
-      call torch_module_delete(model)
-      end_time = omp_get_wtime()
-      module_delete_durations(i) = end_time - start_time
-      ! ------------------------------ End module deletion timer ------------------------------
-    end do
+        ! ------------------------------ Start module deletion timer ------------------------------
+        start_time = omp_get_wtime()
+        call torch_module_delete(model)
+        end_time = omp_get_wtime()
+        module_delete_durations(i) = end_time - start_time
+        ! ------------------------------ End module deletion timer ------------------------------
+      end do
 
-  end subroutine time_module
+    end subroutine time_module
 
 end program benchmark_resnet_test
