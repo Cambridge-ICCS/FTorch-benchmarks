@@ -11,137 +11,226 @@ program benchmark_stride_test
 
   implicit none
 
-  integer :: i, n
-  real(dp) :: start_time, end_time
-  real(dp), allocatable :: durations(:,:)
-  character(len=20), allocatable :: messages(:)
-  real(wp), dimension(:,:), allocatable, asynchronous :: big_array, big_result
+  call main()
 
-  integer :: ie
-  type(module_py) :: run_emulator
-  type(list) :: paths
-  type(object) :: model
-  type(tuple) :: args
-  type(str) :: py_model_dir
+  contains
+
+    subroutine main()
+
+      implicit none
+
+      integer :: i, n
+      real(dp) :: start_time, end_time, start_loop_time, end_loop_time, mean_loop_time
+      real(dp), allocatable :: module_load_durations(:), module_delete_durations(:), tensor_creation_durations(:)
+      real(dp), allocatable :: tensor_deletion_durations(:), inference_durations(:), all_durations(:,:)
+      character(len=20), allocatable :: messages(:)
+      real(wp), dimension(:,:), allocatable, asynchronous :: big_array, big_result
+
+      integer :: ie
+      type(module_py) :: run_emulator
+      type(object) :: model
+      type(tuple) :: args
+
+      character(len=:), allocatable :: model_dir, model_name
+      character(len=128) :: msg1, msg2, msg3, msg4
+      integer :: ntimes
+
+      type(ndarray) :: big_result_nd, big_array_nd
+
+      print *, "====== FORPY ======"
+
+      call setup(model_dir, model_name, ntimes, n)
+
+      allocate(big_array(n, n))
+      allocate(big_result(n, n))
+      allocate(module_load_durations(ntimes))
+      allocate(module_delete_durations(ntimes))
+      allocate(tensor_creation_durations(ntimes))
+      allocate(tensor_deletion_durations(ntimes))
+      allocate(inference_durations(ntimes))
+      allocate(all_durations(ntimes, 5))
+      allocate(messages(5))
+
+      ! Initialise timings with arbitrary large values
+      module_load_durations(:) = 100.
+      module_delete_durations(:) = 100.
+      tensor_creation_durations(:) = 100.
+      tensor_deletion_durations(ntimes) = 100.
+      inference_durations(ntimes) = 100.
+      all_durations(:, :) = 100.
+      start_loop_time = 1000.
+      end_loop_time = 3000.
+      start_time = 1000.
+      end_time = 3000.
+
+      if (ntimes .lt. 2) then
+        write(*,*) "Error: ntimes must be at least 2"
+        return
+      end if
+
+      ! Load model (creation/deletion timed at end)
+      call load_module(model_dir, model_name, run_emulator, model)
+
+      do i = 1, ntimes
+
+        if (i==2) then
+          start_loop_time = omp_get_wtime()
+        end if
+
+        call random_number(big_array)
+
+        ! creates numpy arrays
+        ! ------------------------------ Start tensor creation timer ------------------------------
+        start_time = omp_get_wtime()
+        ie = ndarray_create_nocopy(big_array_nd, big_array)
+        ie = ndarray_create_nocopy(big_result_nd, big_result)
+
+        ! create model input args as tuple
+        ie = tuple_create(args,3)
+        ie = args%setitem(0, model)
+        ie = args%setitem(1, big_array_nd)
+        ie = args%setitem(2, big_result_nd)
+        end_time = omp_get_wtime()
+        tensor_creation_durations(i) = end_time - start_time
+        ! ------------------------------ End tensor creation timer ------------------------------
+
+        ! ------------------------------ Start inference timer ------------------------------
+        start_time = omp_get_wtime()
+        ie = call_py_noret(run_emulator, "compute", args)
+        end_time = omp_get_wtime()
+        inference_durations(i) = end_time - start_time
+        ! ------------------------------ End inference timer --------------------------------
+
+        if (ie .ne. 0) then
+          call err_print
+          call error_mesg(__FILE__, __LINE__, "inference call failed")
+        end if
+
+        ! Clean up.
+        ! ------------------------------ Start tensor deletion timer ------------------------------
+        start_time = omp_get_wtime()
+        call big_result_nd%destroy
+        call big_array_nd%destroy
+        call args%destroy
+        end_time = omp_get_wtime()
+        tensor_deletion_durations(i) = end_time - start_time
+        ! ------------------------------ End tensor deletion timer -
+
+        ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
+        big_array(1, 2) = -1.0*big_array(1, 2)
+        call assert(big_array, big_result/2., test_name="Check array")
+
+        write(msg1, '(A, I10, A, F10.3, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
+        write(msg2, '(A, I15, A, F10.3, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
+        write(msg3, '(A, I10, A, F10.3, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
+        print *, trim(msg1)
+        print *, trim(msg2)
+        print *, trim(msg3)
+      end do
+
+      end_loop_time = omp_get_wtime()
+      mean_loop_time = (end_loop_time - start_loop_time)/(ntimes - 1)
+      write(msg4, '(A, I1, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
+      print *, trim(msg4)
+
+      call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations, run_emulator, model)
+
+      all_durations(:, 1) = module_load_durations
+      all_durations(:, 2) = module_delete_durations
+      all_durations(:, 3) = tensor_creation_durations
+      all_durations(:, 4) = tensor_deletion_durations
+      all_durations(:, 5) = inference_durations
+      messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
+      call print_all_time_stats(all_durations, messages)
+
+      deallocate(big_array)
+      deallocate(big_result)
+      deallocate(module_load_durations)
+      deallocate(module_delete_durations)
+      deallocate(tensor_creation_durations)
+      deallocate(tensor_deletion_durations)
+      deallocate(inference_durations)
+      deallocate(all_durations)
+      deallocate(messages)
+
+    end subroutine main
+
+    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations, run_emulator, model)
+
+      implicit none
+
+      integer, intent(in) :: ntimes
+      character(len=*), intent(in) :: model_dir, model_name
+      real(dp), dimension(:), intent(inout) :: module_load_durations, module_delete_durations
+      type(module_py), intent(out) :: run_emulator
+      type(object), intent(out) :: model
+
+      integer :: i
+      real(dp) :: start_time, end_time
+
+      do i = 1, ntimes
+        ! ------------------------------ Start module load timer ------------------------------
+        start_time = omp_get_wtime()
+        call load_module(model_dir, model_name, run_emulator, model)
+        end_time = omp_get_wtime()
+        module_load_durations(i) = end_time - start_time
+        ! ------------------------------ End module load timer ------------------------------
+
+        ! ------------------------------ Start module deletion timer ------------------------------
+        module_delete_durations(i) = 0.
+        ! ------------------------------ End module deletion timer ------------------------------
+      end do
+
+    end subroutine time_module
+
+    subroutine load_module(model_dir, model_name, run_emulator, model)
+
+      implicit none
+
+      character(len=*), intent(in) :: model_dir, model_name
+      type(module_py), intent(out) :: run_emulator
+      type(object), intent(out) :: model
+
+      integer :: ie
+      type(tuple) :: args
+      type(list) :: paths
+      type(str) :: py_model_dir
 #ifdef USETS
-  type(str) :: filename
-#endif
-
-  character(len=:), allocatable :: model_dir, model_name
-  character(len=128) :: msg1, msg2
-  integer :: ntimes
-
-  type(ndarray) :: big_result_nd, big_array_nd
-
-  print *, "====== FORPY ======"
-
-  call setup(model_dir, model_name, ntimes, n)
-
-  allocate(big_array(n, n))
-  allocate(big_result(n, n))
-  allocate(durations(ntimes, 3))
-  allocate(messages(3))
-
-  ! ------------------------------ Start module timer ------------------------------
-  start_time = omp_get_wtime()
-  ie = forpy_initialize()
-  ie = str_create(py_model_dir, trim(model_dir))
-  ie = get_sys_path(paths)
-  ie = paths%append(py_model_dir)
-
-  ! import python modules to `run_emulator`
-  ie = import_py(run_emulator, trim(model_name))
-  if (ie .ne. 0) then
-      call err_print
-      call error_mesg(__FILE__, __LINE__, "forpy model not loaded")
-  end if
-
-#ifdef USETS
-  print *, "load torchscript model"
-  ! load torchscript saved model
-  ie = tuple_create(args,1)
-  ie = str_create(filename, trim(model_dir//'/saved_model.pt'))
-  ie = args%setitem(0, filename)
-  ie = call_py(model, run_emulator, "initialize_ts", args)
-  call args%destroy
+      type(str) :: filename
+      print *, "load torchscript model"
 #else
-  print *, "generate model in python runtime"
-  ! use python module `run_emulator` to load a trained model
-  ie = call_py(model, run_emulator, "initialize")
+      print *, "generate model in python runtime"
 #endif
-  end_time = omp_get_wtime()
-  durations(:, 1) = end_time - start_time
-  ! ------------------------------ End module timer ------------------------------
 
-  if (ie .ne. 0) then
-      call err_print
-      call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
-  end if
+      ie = forpy_initialize()
+      ie = str_create(py_model_dir, trim(model_dir))
+      ie = get_sys_path(paths)
+      ie = paths%append(py_model_dir)
 
-  do i = 1, ntimes
+      ! import python modules to `run_emulator`
+      ie = import_py(run_emulator, trim(model_name))
+      if (ie .ne. 0) then
+          call err_print
+          call error_mesg(__FILE__, __LINE__, "forpy model not loaded")
+      end if
 
-    call random_number(big_array)
+#ifdef USETS
+      ! load torchscript saved model
+      ie = tuple_create(args,1)
+      ie = str_create(filename, trim(model_dir//"/"//model_name))
+      ie = args%setitem(0, filename)
+      ie = call_py(model, run_emulator, "initialize_ts", args)
+      call args%destroy
+#else
+      ! use python module `run_emulator` to load a trained model
+      ie = call_py(model, run_emulator, "initialize")
+#endif
 
-    ! creates numpy arrays
-    ! ------------------------------ Start tensor timer ------------------------------
-    start_time = omp_get_wtime()
-    ie = ndarray_create_nocopy(big_array_nd, big_array)
-    ie = ndarray_create_nocopy(big_result_nd, big_result)
+      if (ie .ne. 0) then
+          call err_print
+          call error_mesg(__FILE__, __LINE__, "call to `initialize` failed")
+      end if
 
-    ! create model input args as tuple
-    ie = tuple_create(args,3)
-    ie = args%setitem(0, model)
-    ie = args%setitem(1, big_array_nd)
-    ie = args%setitem(2, big_result_nd)
-    end_time = omp_get_wtime()
-    durations(i, 2) = end_time - start_time
-    ! ------------------------------ End tensor timer ------------------------------
-
-    ! ------------------------------ Start inference timer ------------------------------
-    start_time = omp_get_wtime()
-    ie = call_py_noret(run_emulator, "compute", args)
-    end_time = omp_get_wtime()
-    durations(i, 3) = end_time - start_time
-    ! ------------------------------ End inference timer ------------------------------
-
-    if (ie .ne. 0) then
-      call err_print
-      call error_mesg(__FILE__, __LINE__, "inference call failed")
-    end if
-
-    ! Clean up.
-    ! ------------------------------ Start tensor timer ------------------------------
-    start_time = omp_get_wtime()
-    call big_result_nd%destroy
-    call big_array_nd%destroy
-    call args%destroy
-    end_time = omp_get_wtime()
-    durations(i, 2) = durations(i, 2) + (end_time - start_time)
-    ! ------------------------------ End tensor timer ------------------------------
-
-    ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-    big_array(1, 2) = -1.0*big_array(1, 2)
-    call assert(big_array, big_result/2., test_name="Check array")
-
-      ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-    write(msg1, '(A, I8, A, F10.3, A)') "check iteration inference", i, " (", durations(i, 3), " s) [omp]"
-    write(msg2, '(A, I10, A, F10.3, A)') "check iteration tensors", i, " (", durations(i, 2), " s) [omp]"
-    print *, trim(msg1)
-    print *, trim(msg2)
-  end do
-
-  ! ------------------------------ Start module timer ------------------------------
-  start_time = omp_get_wtime()
-  end_time = omp_get_wtime()
-  durations(:, 1) = durations(:, 1) + (end_time - start_time)
-  ! ------------------------------ End module timer ------------------------------
-
-  messages = [character(len=20) :: "--- modules ---", "--- tensors ---", "--- forward pass ---"]
-  call print_all_time_stats(durations, messages)
-
-  deallocate(big_array)
-  deallocate(big_result)
-  deallocate(durations)
-  deallocate(messages)
+    end subroutine load_module
 
 end program
