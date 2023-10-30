@@ -184,19 +184,21 @@ module utils
 
   end subroutine print_time_stats_dp
 
-  subroutine setup(model_dir, model_name, ntimes, n)
+  subroutine setup(model_dir, model_name, ntimes, n, alloc_in_loop)
 
     implicit none
 
     character(len=:), allocatable, intent(inout) :: model_dir, model_name
     integer, intent(out) :: ntimes, n
+    logical, intent(out), optional :: alloc_in_loop
 
     character(len=1024) :: model_dir_temp, model_name_temp
     character(len=16) :: ntimes_char, n_char
+    character(len=5) :: alloc_in_loop_char
 
-    ! Parse argument for N
-    if (command_argument_count() .ne. 4) then
-      call error_mesg(__FILE__, __LINE__, "Usage: benchmarker <model-dir> <model-name> <ntimes> <N>")
+    ! Parse required arguments
+    if (command_argument_count() .lt. 4 .or. command_argument_count() .gt. 5) then
+      call error_mesg(__FILE__, __LINE__, "Usage: benchmarker <model-dir> <model-name> <ntimes> <N> <alloc_in_loop[optional]>")
     endif
 
     call get_command_argument(1, model_dir_temp)
@@ -210,6 +212,18 @@ module utils
     model_name = trim(adjustl(model_name_temp))
 
     write(*,'("Running model: ", A, "/", A, " ", I0, " times.")') model_dir, model_name, ntimes
+
+    ! Read in alloc_in_loop flag, if passed to setup.
+    ! alloc_in_loop defaults to .false. if passed to setup, but is not specified in command line arguments.
+    if (present(alloc_in_loop)) then
+      if (command_argument_count() .eq. 5) then
+        call get_command_argument(5, alloc_in_loop_char)
+        read(alloc_in_loop_char, *) alloc_in_loop
+      else
+        alloc_in_loop = .false.
+      end if
+      write(*,'("Optional settings: alloc_in_loop=", L)') alloc_in_loop
+    end if
 
   end subroutine setup
 

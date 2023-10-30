@@ -50,11 +50,12 @@ program benchmark_cgdrag_test
 
       type(ndarray) :: uuu_nd, vvv_nd, gwfcng_x_nd, gwfcng_y_nd, lat_nd, psfc_nd
 
-      logical :: alloc_in_loop = .true.
+      ! Set flag to .true. to allocate/deallocate flattened arrays during each loop
+      logical :: alloc_in_loop
 
       print *, "====== FORPY ======"
 
-      call setup(model_dir, model_name, ntimes, n)
+      call setup(model_dir, model_name, ntimes, n, alloc_in_loop)
       if (ntimes .lt. 2) then
         write(*,*) "Error: ntimes must be at least 2"
         return

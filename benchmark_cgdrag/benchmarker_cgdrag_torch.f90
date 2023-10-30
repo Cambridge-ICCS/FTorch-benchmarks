@@ -57,11 +57,12 @@ program benchmark_cgdrag_test
       type(torch_tensor), dimension(n_inputs) :: in_tensors
       type(torch_tensor) :: gwfcng_x_tensor, gwfcng_y_tensor
 
-      logical :: alloc_in_loop = .true.
+      ! Set flag to .true. to allocate/deallocate flattened arrays during each loop
+      logical :: alloc_in_loop
 
       print *, "====== DIRECT COUPLED ======"
 
-      call setup(model_dir, model_name, ntimes, n)
+      call setup(model_dir, model_name, ntimes, n, alloc_in_loop)
       if (ntimes .lt. 2) then
         write(*, *) "Error: ntimes must be at least 2"
         return
