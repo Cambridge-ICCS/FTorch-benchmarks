@@ -151,7 +151,7 @@ program benchmark_cgdrag_test
         ! Include with inference, as necessary for useful output
         start_time = omp_get_wtime()
         ! Reshape, and assign to gwfcng
-        do j=1,J_MAX
+        do j = 1, J_MAX
             gwfcng_x(:, j, :) = gwfcng_x_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
             gwfcng_y(:, j, :) = gwfcng_y_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
         end do
@@ -329,6 +329,9 @@ program benchmark_cgdrag_test
 
       real(dp), intent(out) :: start_loop_time, end_loop_time, start_time, end_time
 
+      real(wp), parameter :: PI = 4.0 * ATAN(1.0)
+      real(wp), parameter :: RADIAN = 180.0 / PI
+
       integer :: i, j, k, ii, jj, kk
 
       ! Read gravity wave parameterisation data in from file
@@ -347,14 +350,16 @@ program benchmark_cgdrag_test
 
       do i = 1, I_MAX
         do j = 1, J_MAX
-            do k = 1, K_MAX
-                read(10, '(3(I4, 1X), E25.16)') ii, jj, kk, uuu(ii,jj,kk)
-                read(11, '(3(I4, 1X), E25.16)') ii, jj, kk, vvv(ii,jj,kk)
+          do k = 1, K_MAX
+            read(10, '(3(I4, 1X), E25.16)') ii, jj, kk, uuu(ii, jj, kk)
+            read(11, '(3(I4, 1X), E25.16)') ii, jj, kk, vvv(ii, jj, kk)
             end do
-            read(12, '(2(I4, 1X), E25.16)') ii, jj, lat(ii,jj)
-            read(13, '(2(I4, 1X), E25.16)') ii, jj, psfc(ii,jj)
+          read(12, '(2(I4, 1X), E25.16)') ii, jj, lat(ii, jj)
+          read(13, '(2(I4, 1X), E25.16)') ii, jj, psfc(ii, jj)
         end do
       end do
+
+      lat = lat * RADIAN
 
       ! Read in reference data
       allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
@@ -409,8 +414,6 @@ program benchmark_cgdrag_test
       real(wp), intent(out), dimension(:,:), allocatable :: lat_reshaped, psfc_reshaped
       real(wp), intent(out), dimension(:,:), allocatable :: gwfcng_x_flattened, gwfcng_y_flattened
 
-      real(wp), parameter :: PI = 4.0 * ATAN(1.0)
-      real(wp), parameter :: RADIAN = 180.0 / PI
       integer :: j
 
       ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
@@ -424,7 +427,7 @@ program benchmark_cgdrag_test
       do j = 1, J_MAX
         uuu_flattened((j - 1) * I_MAX + 1:j * I_MAX, :) = uuu(:, j, :)
         vvv_flattened((j - 1) * I_MAX + 1:j * I_MAX, :) = vvv(:, j, :)
-        lat_reshaped((j - 1) * I_MAX + 1:j * I_MAX, 1) = lat(:, j) * RADIAN
+        lat_reshaped((j - 1) * I_MAX + 1:j * I_MAX, 1) = lat(:, j)
         psfc_reshaped((j - 1) * I_MAX + 1:j * I_MAX, 1) = psfc(:, j)
       end do
 
