@@ -90,6 +90,11 @@ add_executable(benchmarker_cgdrag_torch benchmark_cgdrag/benchmarker_cgdrag_torc
 target_link_libraries(benchmarker_cgdrag_torch PRIVATE FTorch::ftorch )
 target_sources(benchmarker_cgdrag_torch PRIVATE benchmarker_utils.f90)
 
+# cgdrag test with implicit reshape
+add_executable(benchmarker_cgdrag_torch_implicit benchmark_cgdrag/benchmarker_cgdrag_torch_implicit.f90)
+target_link_libraries(benchmarker_cgdrag_torch_implicit PRIVATE FTorch::ftorch )
+target_sources(benchmarker_cgdrag_torch_implicit PRIVATE benchmarker_utils.f90)
+
 # Make sure python present
 # Search until Python version satisfying constraints is located
 set(Python_FIND_STRATEGY LOCATION)
