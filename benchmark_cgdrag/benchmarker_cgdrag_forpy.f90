@@ -50,7 +50,8 @@ program benchmark_cgdrag_test
 
       type(ndarray) :: uuu_nd, vvv_nd, gwfcng_x_nd, gwfcng_y_nd, lat_nd, psfc_nd
 
-      ! Set flag to .true. to allocate/deallocate flattened arrays during each loop
+      ! Set flag to .true. via command line argument --alloc_in_loop
+      ! to allocate/deallocate flattened arrays during each loop. Default (.false.) is set in setup().
       logical :: alloc_in_loop
 
       print *, "====== FORPY ======"

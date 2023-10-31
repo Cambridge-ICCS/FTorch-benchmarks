@@ -184,21 +184,22 @@ module utils
 
   end subroutine print_time_stats_dp
 
-  subroutine setup(model_dir, model_name, ntimes, n, alloc_in_loop)
+  subroutine setup(model_dir, model_name, ntimes, n, alloc_in_loop, explicit_reshape)
 
     implicit none
 
     character(len=:), allocatable, intent(inout) :: model_dir, model_name
     integer, intent(out) :: ntimes, n
-    logical, intent(out), optional :: alloc_in_loop
+    logical, intent(out), optional :: alloc_in_loop, explicit_reshape
 
     character(len=1024) :: model_dir_temp, model_name_temp
     character(len=16) :: ntimes_char, n_char
-    character(len=5) :: alloc_in_loop_char
+    character(len=32) :: flag
+    integer :: i
 
     ! Parse required arguments
-    if (command_argument_count() .lt. 4 .or. command_argument_count() .gt. 5) then
-      call error_mesg(__FILE__, __LINE__, "Usage: benchmarker <model-dir> <model-name> <ntimes> <N> <alloc_in_loop[optional]>")
+    if (command_argument_count() .lt. 4 .or. command_argument_count() .gt. 6) then
+      call error_mesg(__FILE__, __LINE__, "Usage: benchmarker <model-dir> <model-name> <ntimes> <N> <--alloc_in_loop[optional]> <--explicit_reshape[optional]>")
     endif
 
     call get_command_argument(1, model_dir_temp)
@@ -213,16 +214,57 @@ module utils
 
     write(*,'("Running model: ", A, "/", A, " ", I0, " times.")') model_dir, model_name, ntimes
 
-    ! Read in alloc_in_loop flag, if passed to setup.
-    ! alloc_in_loop defaults to .false. if passed to setup, but is not specified in command line arguments.
     if (present(alloc_in_loop)) then
-      if (command_argument_count() .eq. 5) then
-        call get_command_argument(5, alloc_in_loop_char)
-        read(alloc_in_loop_char, *) alloc_in_loop
-      else
-        alloc_in_loop = .false.
+      alloc_in_loop = .false.
+    end if
+    if (present(explicit_reshape)) then
+      explicit_reshape = .false.
+    end if
+
+    if (command_argument_count() .gt. 4) then
+      write(*,*) "Optional settings:"
+      do i = 5, command_argument_count()
+        call get_command_argument(i, flag)
+
+        select case (flag)
+
+          ! If .true., explicitly reshape FTorch arrays, rather than implicitly
+          case ('--explicit_reshape')
+            if (present(explicit_reshape)) then
+              explicit_reshape = .true.
+            else
+              print '(2a, /)', 'explicit_reshape must be passed to setup() to use ', flag
+              stop
+            end if
+
+          ! If .true., allocate/deallocate arrays for each loop
+          case ('--alloc_in_loop')
+            if (present(alloc_in_loop)) then
+              alloc_in_loop = .true.
+            else
+              print '(2a, /)', 'alloc_in_loop must be passed to setup() to use ', flag
+              stop
+            end if
+
+          case default
+            print '(2a, /)', 'Error: unrecognised command-line option: ', flag
+            stop
+        end select
+      end do
+    end if
+
+    if (present(explicit_reshape) .and. present(alloc_in_loop)) then
+      if (.not. explicit_reshape .and. alloc_in_loop) then
+        write(*,*) "Error: alloc_in_loop cannot be .true. if explicit_reshape is .false."
+        stop
       end if
+    end if
+
+    if (present(alloc_in_loop)) then
       write(*,'("Optional settings: alloc_in_loop=", L)') alloc_in_loop
+    end if
+    if (present(explicit_reshape)) then
+      write(*,'("Optional settings: explicit_reshape=", L)') explicit_reshape
     end if
 
   end subroutine setup

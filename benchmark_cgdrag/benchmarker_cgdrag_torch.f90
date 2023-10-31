@@ -57,12 +57,18 @@ program benchmark_cgdrag_test
       type(torch_tensor), dimension(n_inputs) :: in_tensors
       type(torch_tensor) :: gwfcng_x_tensor, gwfcng_y_tensor
 
-      ! Set flag to .true. to allocate/deallocate flattened arrays during each loop
+      ! Set flag to .true. via command line argument --explicit_reshape
+      ! to explicitly reshape flattened tensors. Default (.false.) is set in setup().
+      logical :: explicit_reshape
+
+      ! Set flag to .true. via command line argument --alloc_in_loop
+      ! to allocate/deallocate flattened arrays during each loop. Default (.false.) is set in setup().
+      ! Only used if explicit_reshape is .true.
       logical :: alloc_in_loop
 
       print *, "====== DIRECT COUPLED ======"
 
-      call setup(model_dir, model_name, ntimes, n, alloc_in_loop)
+      call setup(model_dir, model_name, ntimes, n, alloc_in_loop, explicit_reshape)
       if (ntimes .lt. 2) then
         write(*, *) "Error: ntimes must be at least 2"
         return
@@ -74,8 +80,9 @@ program benchmark_cgdrag_test
                               tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, messages, &
                               start_loop_time, end_loop_time, start_time, end_time)
 
-      ! Reshape arrays, if not done for every loop
-      if (.not. alloc_in_loop) then
+      ! Allocate arrays and flatten inputs and outputs if --explicit_reshape is set, but --alloc_in_loop is not
+      ! if --explicit_reshape and --alloc_in_loop are both set, this is done within each loop instead
+      if (.not. alloc_in_loop .and. explicit_reshape) then
         call init_reshaped_arrays(I_MAX, J_MAX, K_MAX, uuu, vvv, lat, psfc, uuu_flattened, vvv_flattened, &
                             lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
       end if
@@ -91,7 +98,8 @@ program benchmark_cgdrag_test
 
         ! ------------------------------ Start allocation timer ----------------------------
         start_time = omp_get_wtime()
-        if (alloc_in_loop) then
+        ! Allocate arrays for flattened inputs and outputs if --alloc_in_loop and --explicit_reshape are set
+        if (alloc_in_loop .and. explicit_reshape) then
           call init_reshaped_arrays(I_MAX, J_MAX, K_MAX, uuu, vvv, lat, psfc, uuu_flattened, vvv_flattened, &
           lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
         end if
@@ -102,12 +110,22 @@ program benchmark_cgdrag_test
         ! Create input and output tensors for the model.
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
-        in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
-        in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+        if (explicit_reshape) then
+          in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+        else
+          in_tensors(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+        end if
 
         ! Zonal
-        in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
-        gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        if (explicit_reshape) then
+          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        else
+          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        end if
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
         ! ------------------------------ End tensor creation timer ------------------------------
@@ -123,8 +141,13 @@ program benchmark_cgdrag_test
         ! Meridional
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
-        in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
-        gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        if (explicit_reshape) then
+          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        else
+          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        end if
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = tensor_creation_durations(i) + (end_time - start_time)
         ! ------------------------------ End tensor creation timer ------------------------------
@@ -140,11 +163,13 @@ program benchmark_cgdrag_test
         ! ------------------------------ Start inference timer ------------------------------
         ! Include with inference, as necessary for useful output
         start_time = omp_get_wtime()
-        ! Reshape, and assign to gwfcng
-        do j = 1, J_MAX
-          gwfcng_x(:, j, :) = gwfcng_x_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
-          gwfcng_y(:, j, :) = gwfcng_y_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
-        end do
+        if (explicit_reshape) then
+          ! Reshape, and assign to gwfcng
+          do j = 1, J_MAX
+            gwfcng_x(:, j, :) = gwfcng_x_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+            gwfcng_y(:, j, :) = gwfcng_y_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+          end do
+        end if
         end_time = omp_get_wtime()
         inference_durations(i) = inference_durations(i) + (end_time - start_time)
         ! ------------------------------ End inference timer ------------------------------
@@ -167,7 +192,8 @@ program benchmark_cgdrag_test
 
         ! ------------------------------ Start deallocation timer ------------------------------
         start_time = omp_get_wtime()
-        if (alloc_in_loop) then
+        ! Deallocate arrays for flattened inputs and outputs if --alloc_in_loop and --explicit_reshape are set
+        if (alloc_in_loop .and. explicit_reshape) then
           call deallocate_reshaped_arrays(uuu_flattened, vvv_flattened, lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
         end if
         end_time = omp_get_wtime()
@@ -207,7 +233,10 @@ program benchmark_cgdrag_test
       call deallocate_common_arrays(module_load_durations, module_delete_durations, allocation_durations, deallocation_durations, &
                                     tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, &
                                     messages, uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc)
-      if (.not. alloc_in_loop) then
+
+      ! Deallocate arrays for flattened inputs and outputs if --explicit_reshape is set, but --alloc_in_loop is not
+      ! if --explicit_reshape and --alloc_in_loop are both set, this is done within each loop instead
+      if (.not. alloc_in_loop .and. explicit_reshape) then
         call deallocate_reshaped_arrays(uuu_flattened, vvv_flattened, lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
       end if
 
