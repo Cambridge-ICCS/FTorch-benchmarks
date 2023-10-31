@@ -189,7 +189,7 @@ program benchmark_cgdrag_test
 
       end_loop_time = omp_get_wtime()
       mean_loop_time = (end_loop_time - start_loop_time)/(ntimes - 1)
-      write(msg6, '(A, I5, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
+      write(msg6, '(A, I5, A, F24.4, A)') "Mean time for ", ntimes - 1, " loops", mean_loop_time, " s"
       print *, trim(msg6)
 
       call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)

@@ -143,7 +143,7 @@ module utils
     mean = sum(means)
 
     write (*,*) "----------- Combined results ----------------"
-    write(*,'(A,F10.4,A)') "Overall mean (s): ", mean
+    write(*,'(A,F18.4,A)') "Overall mean (s): ", mean
     write(*,'(A,I22)')     "Sample size: ", n
     write (*,*) "---------------------------------------------"
 

@@ -120,7 +120,7 @@ program benchmark_stride_test
 
       end_loop_time = omp_get_wtime()
       mean_loop_time = (end_loop_time - start_loop_time)/(ntimes - 1)
-      write(msg4, '(A, I1, A, F24.4, A)') "Mean time for ", ntimes, " loops", mean_loop_time, " s"
+      write(msg4, '(A, I5, A, F24.4, A)') "Mean time for ", ntimes - 1, " loops", mean_loop_time, " s"
       print *, trim(msg4)
 
       ! Delete model (creation/deletion timed at end)
