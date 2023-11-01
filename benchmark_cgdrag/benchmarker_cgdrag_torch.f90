@@ -2,7 +2,7 @@ program benchmark_cgdrag_test
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert, setup, print_all_time_stats
+  use :: utils, only : assert, setup, print_time_stats, print_all_time_stats
   use :: ftorch
   use :: precision, only: dp
 
@@ -21,9 +21,9 @@ program benchmark_cgdrag_test
       implicit none
 
       integer :: i, j, n, ii
-      real(dp) :: start_time, end_time, start_loop_time, end_loop_time, mean_loop_time
-      real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, allocation_durations, deallocation_durations
-      real(dp), dimension(:), allocatable :: tensor_creation_durations, tensor_deletion_durations, inference_durations
+      real(dp) :: start_time, end_time, start_loop_time, end_loop_time
+      real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations, inference_durations
+      real(dp), dimension(:), allocatable :: allocation_durations, deallocation_durations, tensor_creation_durations, tensor_deletion_durations
       real(dp), dimension(:,:), allocatable :: all_durations
       character(len=20), dimension(:), allocatable :: messages
 
@@ -74,9 +74,9 @@ program benchmark_cgdrag_test
         return
       end if
 
-      ! Allocate arrays shared with forpy implementation and read in data
-      call init_common_arrays(ntimes, I_MAX, J_MAX, K_MAX, uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, &
-                              lat, psfc, module_load_durations, module_delete_durations, allocation_durations, deallocation_durations, &
+      ! Allocate arrays shared with FTorch implementation and read in data
+      call init_common_arrays(ntimes, I_MAX, J_MAX, K_MAX, uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, &
+                              module_load_durations, module_delete_durations, loop_durations, allocation_durations, deallocation_durations, &
                               tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, messages, &
                               start_loop_time, end_loop_time, start_time, end_time)
 
@@ -92,9 +92,8 @@ program benchmark_cgdrag_test
 
       do i = 1, ntimes
 
-        if (i==2) then
-          start_loop_time = omp_get_wtime()
-        end if
+        ! ------------------------------ Start loop timer ----------------------------
+        start_loop_time = omp_get_wtime()
 
         ! ------------------------------ Start allocation timer ----------------------------
         start_time = omp_get_wtime()
@@ -200,25 +199,29 @@ program benchmark_cgdrag_test
         deallocation_durations(i) = end_time - start_time
         ! ------------------------------ End deallocation timer -----------------------------
 
+        end_loop_time = omp_get_wtime()
+        loop_durations(i) = end_loop_time - start_loop_time
+        ! ------------------------------ End loop timer ----------------------------
+
         write(msg1, '(A, I18, A, F10.3, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
         write(msg2, '(A, I13, A, F10.3, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
         write(msg3, '(A, I13, A, F10.3, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
         write(msg4, '(A, I12, A, F10.3, A)') "check iteration allocate arrays", i, " (", allocation_durations(i), " s)"
         write(msg5, '(A, I10, A, F10.3, A)') "check iteration deallocate arrays", i, " (", deallocation_durations(i), " s)"
+        write(msg6, '(A, I18, A, F11.4, A)') "check iteration full loop", i, " (", loop_durations(i), " s)"
         print *, trim(msg1)
         print *, trim(msg2)
         print *, trim(msg3)
         print *, trim(msg4)
         print *, trim(msg5)
+        print *, trim(msg6)
 
       end do
 
-      end_loop_time = omp_get_wtime()
-      mean_loop_time = (end_loop_time - start_loop_time)/(ntimes - 1)
-      write(msg6, '(A, I5, A, F24.4, A)') "Mean time for ", ntimes - 1, " loops", mean_loop_time, " s"
-      print *, trim(msg6)
-
       call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
+
+      ! Call individual print for loop, to avoid adding to combined mean
+      call print_time_stats(loop_durations, "full loop")
 
       all_durations(:, 1) = module_load_durations
       all_durations(:, 2) = module_delete_durations
@@ -227,12 +230,13 @@ program benchmark_cgdrag_test
       all_durations(:, 5) = tensor_creation_durations
       all_durations(:, 6) = tensor_deletion_durations
       all_durations(:, 7) = inference_durations
-      messages = [character(len=20) :: "module creation", "module deletion", "array allocation", "array deallocation", "tensor creation", "tensor deletion", "forward pass"]
+      messages = [character(len=20) :: "module creation", "module deletion", "array allocation", "array deallocation", &
+                  "tensor creation", "tensor deletion", "forward pass"]
       call print_all_time_stats(all_durations, messages)
 
-      call deallocate_common_arrays(module_load_durations, module_delete_durations, allocation_durations, deallocation_durations, &
-                                    tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, &
-                                    messages, uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc)
+      call deallocate_common_arrays(uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, module_load_durations, &
+                                    module_delete_durations, loop_durations, allocation_durations, deallocation_durations, &
+                                    tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, messages)
 
       ! Deallocate arrays for flattened inputs and outputs if --explicit_reshape is set, but --alloc_in_loop is not
       ! if --explicit_reshape and --alloc_in_loop are both set, this is done within each loop instead
@@ -271,10 +275,10 @@ program benchmark_cgdrag_test
 
     end subroutine time_module
 
-    subroutine init_common_arrays(ntimes, I_MAX, J_MAX, K_MAX, uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, &
-                                    lat, psfc, module_load_durations, module_delete_durations, allocation_durations, &
-                                    deallocation_durations, tensor_creation_durations, tensor_deletion_durations, inference_durations, &
-                                    all_durations, messages, start_loop_time, end_loop_time, start_time, end_time)
+    subroutine init_common_arrays(ntimes, I_MAX, J_MAX, K_MAX, uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, &
+                                  module_load_durations, module_delete_durations, loop_durations, allocation_durations, &
+                                  deallocation_durations, tensor_creation_durations, tensor_deletion_durations, inference_durations, &
+                                  all_durations, messages, start_loop_time, end_loop_time, start_time, end_time)
 
       implicit none
 
@@ -284,8 +288,8 @@ program benchmark_cgdrag_test
       real(wp), intent(out), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
       real(wp), intent(out), dimension(:,:), allocatable :: lat, psfc
 
-      real(dp), intent(out), dimension(:), allocatable :: module_load_durations, module_delete_durations, allocation_durations, deallocation_durations
-      real(dp), intent(out), dimension(:), allocatable :: tensor_creation_durations, tensor_deletion_durations, inference_durations
+      real(dp), intent(out), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations, inference_durations
+      real(dp), intent(out), dimension(:), allocatable :: allocation_durations, deallocation_durations, tensor_creation_durations, tensor_deletion_durations
       real(dp), intent(out), dimension(:,:), allocatable :: all_durations
       character(len=20), intent(out), dimension(:), allocatable :: messages
 
@@ -341,17 +345,19 @@ program benchmark_cgdrag_test
       ! Allocate arrays for timings
       allocate(module_load_durations(ntimes))
       allocate(module_delete_durations(ntimes))
+      allocate(loop_durations(ntimes))
       allocate(allocation_durations(ntimes))
       allocate(deallocation_durations(ntimes))
       allocate(tensor_creation_durations(ntimes))
       allocate(tensor_deletion_durations(ntimes))
       allocate(inference_durations(ntimes))
       allocate(all_durations(ntimes, 7))
-      allocate(messages(5))
+      allocate(messages(7))
 
       ! Initialise timings with arbitrary large values
       module_load_durations(:) = 100.
       module_delete_durations(:) = 100.
+      loop_durations(:) = 100.
       allocation_durations(:) = 100.
       deallocation_durations(:) = 100.
       tensor_creation_durations(:) = 100.
@@ -397,15 +403,14 @@ program benchmark_cgdrag_test
 
     end subroutine init_reshaped_arrays
 
-    subroutine deallocate_common_arrays(module_load_durations, module_delete_durations, allocation_durations, &
-                                        deallocation_durations, tensor_creation_durations, tensor_deletion_durations, &
-                                        inference_durations, all_durations, messages, uuu, vvv, gwfcng_x, gwfcng_y, &
-                                        gwfcng_x_ref, gwfcng_y_ref, lat, psfc)
+    subroutine deallocate_common_arrays(uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, module_load_durations, &
+                                        module_delete_durations, loop_durations, allocation_durations, deallocation_durations, &
+                                        tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, messages)
 
       implicit none
 
-      real(dp), intent(inout), dimension(:), allocatable :: module_load_durations, module_delete_durations, allocation_durations, deallocation_durations
-      real(dp), intent(inout), dimension(:), allocatable :: tensor_creation_durations, tensor_deletion_durations, inference_durations
+      real(dp), intent(inout), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations, inference_durations
+      real(dp), intent(inout), dimension(:), allocatable :: allocation_durations, deallocation_durations, tensor_creation_durations, tensor_deletion_durations
       real(dp), intent(inout), dimension(:,:), allocatable :: all_durations
       character(len=20), intent(inout), dimension(:), allocatable :: messages
 
@@ -415,6 +420,7 @@ program benchmark_cgdrag_test
 
       deallocate(module_load_durations)
       deallocate(module_delete_durations)
+      deallocate(loop_durations)
       deallocate(allocation_durations)
       deallocate(deallocation_durations)
       deallocate(tensor_creation_durations)
