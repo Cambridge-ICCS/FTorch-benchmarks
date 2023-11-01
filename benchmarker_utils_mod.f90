@@ -155,14 +155,15 @@ module utils
     integer, intent(out) :: ntimes, n
     logical, optional, intent(out):: use_cuda
 
-
     character(len=1024) :: model_dir_temp, model_name_temp
     character(len=16) :: ntimes_char, n_char
-    character(len=5) :: use_cuda_char
 
-    ! Parse argument for N
-    if (command_argument_count() .ne. 4 .and. command_argument_count() .ne. 5) then
-      call error_mesg(__FILE__, __LINE__, "Usage: benchmarker <model-dir> <model-name> <ntimes> <N> <use_cuda[optional]>")
+    character(len=32) :: flag
+    integer :: i
+
+    ! Parse required arguments
+    if (command_argument_count() .lt. 4 .or. command_argument_count() .gt. 5) then
+      call error_mesg(__FILE__, __LINE__, "Usage: benchmarker <model-dir> <model-name> <ntimes> <N> <--use_cuda[optional]>")
     endif
 
     call get_command_argument(1, model_dir_temp)
@@ -170,17 +171,44 @@ module utils
     call get_command_argument(3, ntimes_char)
     call get_command_argument(4, n_char)
 
-    if (command_argument_count() .eq. 5) then
-      call get_command_argument(5, use_cuda_char)
-      read(use_cuda_char, *) use_cuda
-    endif
-
     read(ntimes_char, *) ntimes
     read(n_char, *) n
     model_dir = trim(adjustl(model_dir_temp))
     model_name = trim(adjustl(model_name_temp))
 
     write(*,'("Running model: ", A, "/", A, " ", I0, " times.")') model_dir, model_name, ntimes
+
+    ! Set default use_cuda as .false.
+    if (present(use_cuda)) then
+      use_cuda = .false.
+    end if
+
+    if (command_argument_count() .gt. 4) then
+      write(*,*) "Optional settings:"
+      do i = 5, command_argument_count()
+        call get_command_argument(i, flag)
+
+        select case (flag)
+
+          ! If --use_cuda is .true., use move input tensors to GPU
+          case ('--use_cuda')
+            if (present(use_cuda)) then
+              use_cuda = .true.
+            else
+              print '(2a, /)', 'use_cuda must be passed to setup() to use ', flag
+              stop
+            end if
+
+          case default
+            print '(2a, /)', 'Error: unrecognised command-line option: ', flag
+            stop
+        end select
+      end do
+    end if
+
+    if (present(use_cuda)) then
+      write(*,'("use_cuda=", L)') use_cuda
+    end if
 
   end subroutine setup
 
