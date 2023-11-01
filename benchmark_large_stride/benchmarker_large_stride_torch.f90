@@ -2,7 +2,7 @@ program benchmark_stride_test
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert, setup, print_all_time_stats
+  use :: utils, only : assert, setup, print_time_stats, print_all_time_stats
   use :: ftorch
   use :: precision, only: wp, dp
 
@@ -19,12 +19,13 @@ program benchmark_stride_test
       implicit none
 
       integer :: i, ii, n
-      real(dp) :: start_time, end_time, start_loop_time, end_loop_time, mean_loop_time
-      real(dp), allocatable :: module_load_durations(:), module_delete_durations(:), tensor_creation_durations(:)
-      real(dp), allocatable :: tensor_deletion_durations(:), inference_durations(:), all_durations(:,:)
-      character(len=20), allocatable :: messages(:)
-
       real(wp), dimension(:,:), allocatable, target :: big_array, big_result
+
+      real(dp) :: start_time, end_time, start_loop_time, end_loop_time
+      real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations
+      real(dp), dimension(:), allocatable :: inference_durations, tensor_creation_durations, tensor_deletion_durations
+      real(dp), dimension(:,:), allocatable :: all_durations
+      character(len=20), dimension(:), allocatable :: messages
 
       integer(c_int), parameter :: n_inputs = 1
       integer(c_int64_t) :: shape_2d(2)
@@ -46,6 +47,7 @@ program benchmark_stride_test
       allocate(big_result(n, n))
       allocate(module_load_durations(ntimes))
       allocate(module_delete_durations(ntimes))
+      allocate(loop_durations(ntimes))
       allocate(tensor_creation_durations(ntimes))
       allocate(tensor_deletion_durations(ntimes))
       allocate(inference_durations(ntimes))
@@ -55,6 +57,7 @@ program benchmark_stride_test
       ! Initialise timings with arbitrary large values
       module_load_durations(:) = 100.
       module_delete_durations(:) = 100.
+      loop_durations(:) = 100.
       tensor_creation_durations(:) = 100.
       tensor_deletion_durations(ntimes) = 100.
       inference_durations(ntimes) = 100.
@@ -76,6 +79,9 @@ program benchmark_stride_test
       stride_2d = (/ 1, 2 /)
 
       do i = 1, ntimes
+
+        ! ------------------------------ Start loop timer ------------------------------
+        start_loop_time = omp_get_wtime()
 
         call random_number(big_array)
 
@@ -106,6 +112,10 @@ program benchmark_stride_test
         tensor_deletion_durations(i) = end_time - start_time
         ! ------------------------------ End tensor deletion timer ------------------------------
 
+        end_loop_time = omp_get_wtime()
+        loop_durations(i) = end_loop_time - start_loop_time
+        ! ------------------------------ End loop timer ----------------------------
+
         ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
         big_array(1, 2) = -1.0*big_array(1, 2)
         call assert(big_array, big_result/2., test_name="Check array")
@@ -113,20 +123,21 @@ program benchmark_stride_test
         write(msg1, '(A, I10, A, F10.3, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
         write(msg2, '(A, I15, A, F10.3, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
         write(msg3, '(A, I10, A, F10.3, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
+        write(msg4, '(A, I18, A, F11.4, A)') "check iteration full loop", i, " (", loop_durations(i), " s)"
         print *, trim(msg1)
         print *, trim(msg2)
         print *, trim(msg3)
-      end do
+        print *, trim(msg4)
 
-      end_loop_time = omp_get_wtime()
-      mean_loop_time = (end_loop_time - start_loop_time)/(ntimes - 1)
-      write(msg4, '(A, I5, A, F24.4, A)') "Mean time for ", ntimes - 1, " loops", mean_loop_time, " s"
-      print *, trim(msg4)
+      end do
 
       ! Delete model (creation/deletion timed at end)
       call torch_module_delete(model)
 
       call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
+
+      ! Call individual print for loop, to avoid adding to combined mean
+      call print_time_stats(loop_durations, "full loop")
 
       all_durations(:, 1) = module_load_durations
       all_durations(:, 2) = module_delete_durations
@@ -140,6 +151,7 @@ program benchmark_stride_test
       deallocate(big_result)
       deallocate(module_load_durations)
       deallocate(module_delete_durations)
+      deallocate(loop_durations)
       deallocate(tensor_creation_durations)
       deallocate(tensor_deletion_durations)
       deallocate(inference_durations)
