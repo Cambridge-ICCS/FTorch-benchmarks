@@ -176,10 +176,10 @@ module utils
     if (present(message)) then
       write(*,*) trim(adjustl(message))
     endif
-    write(*,'(A,F10.4,A)') "min    time taken (s): ", minval(durations(2:))
-    write(*,'(A,F10.4,A)') "max    time taken (s): ", maxval(durations(2:))
-    write(*,'(A,F10.4,A)') "mean   time taken (s): ", mean
-    write(*,'(A,F10.4,A)') "stddev time taken (s): ", stddev
+    write(*,'(A,F12.6,A)') "min    time taken (s): ", minval(durations(2:))
+    write(*,'(A,F12.6,A)') "max    time taken (s): ", maxval(durations(2:))
+    write(*,'(A,F12.6,A)') "mean   time taken (s): ", mean
+    write(*,'(A,F12.6,A)') "stddev time taken (s): ", stddev
     write(*,'(A,I10)')     "sample size          : ", n
 
   end subroutine print_time_stats_dp
