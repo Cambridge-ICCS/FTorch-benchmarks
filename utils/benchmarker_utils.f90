@@ -261,10 +261,10 @@ module utils
     end if
 
     if (present(alloc_in_loop)) then
-      write(*,'("Optional settings: alloc_in_loop=", L)') alloc_in_loop
+      write(*,'("alloc_in_loop=", L)') alloc_in_loop
     end if
     if (present(explicit_reshape)) then
-      write(*,'("Optional settings: explicit_reshape=", L)') explicit_reshape
+      write(*,'("explicit_reshape=", L)') explicit_reshape
     end if
 
   end subroutine setup
