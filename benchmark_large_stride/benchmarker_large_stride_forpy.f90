@@ -234,7 +234,7 @@ program benchmark_stride_test
 #ifdef USETS
       ! load torchscript saved model
       ie = tuple_create(args,1)
-      ie = str_create(filename, trim(model_dir//"/"//model_name))
+      ie = str_create(filename, trim(model_dir//"/"//"saved_large_stride_model_cpu.pt"))
       ie = args%setitem(0, filename)
       ie = call_py(model, run_emulator, "initialize_ts", args)
       call args%destroy
