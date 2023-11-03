@@ -76,7 +76,7 @@ program benchmark_resnet_test
       allocate(all_durations(ntimes, 5))
       allocate(messages(5))
 
-        ! Initialise timings with arbitrary large values
+      ! Initialise timings with arbitrary large values
       module_load_durations(:) = 100.
       module_delete_durations(:) = 100.
       loop_durations(:) = 100.
