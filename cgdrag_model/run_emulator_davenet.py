@@ -22,17 +22,22 @@ def initialize_ts(*args):
 
 
 # Initialize everything
-def initialize(path_weights_stats="../cgdrag_model/network_wst.pkl"):
+def initialize(
+    path_weights_stats="../cgdrag_model/network_wst.pkl",
+    device_str: str = "cpu",
+):
     """
     Initialize a WaveNet model and load weights.
 
     Parameters
     __________
-    path_weights_stats : pickled object that contains weights and statistics (means and stds).
+    path_weights_stats : str
+        Path to a pickled object that contains weights and statistics (means and stds).
+    device_str : str
+        Device to load model. Must be either "cpu" or "cuda".
 
     """
 
-    device_str = "cpu"
     checkpoint = load(path_weights_stats, map_location=device(device_str))
     model = m.WaveNet(checkpoint).to(device_str)
 
