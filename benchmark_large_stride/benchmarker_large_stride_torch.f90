@@ -120,10 +120,10 @@ program benchmark_stride_test
         big_array(1, 2) = -1.0*big_array(1, 2)
         call assert(big_array, big_result/2., test_name="Check array")
 
-        write(msg1, '(A, I10, A, F10.3, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
-        write(msg2, '(A, I15, A, F10.3, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
-        write(msg3, '(A, I10, A, F10.3, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
-        write(msg4, '(A, I18, A, F11.4, A)') "check iteration full loop", i, " (", loop_durations(i), " s)"
+        write(msg1, '(A, I10, A, F10.6, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
+        write(msg2, '(A, I15, A, F10.6, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
+        write(msg3, '(A, I10, A, F10.6, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
+        write(msg4, '(A, I18, A, F11.6, A)') "check iteration full loop", i, " (", loop_durations(i), " s)"
         print *, trim(msg1)
         print *, trim(msg2)
         print *, trim(msg3)

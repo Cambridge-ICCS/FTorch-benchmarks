@@ -203,12 +203,12 @@ program benchmark_cgdrag_test
         loop_durations(i) = end_loop_time - start_loop_time
         ! ------------------------------ End loop timer ----------------------------
 
-        write(msg1, '(A, I18, A, F10.3, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
-        write(msg2, '(A, I13, A, F10.3, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
-        write(msg3, '(A, I13, A, F10.3, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
-        write(msg4, '(A, I12, A, F10.3, A)') "check iteration allocate arrays", i, " (", allocation_durations(i), " s)"
-        write(msg5, '(A, I10, A, F10.3, A)') "check iteration deallocate arrays", i, " (", deallocation_durations(i), " s)"
-        write(msg6, '(A, I18, A, F11.4, A)') "check iteration full loop", i, " (", loop_durations(i), " s)"
+        write(msg1, '(A, I18, A, F10.6, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
+        write(msg2, '(A, I13, A, F10.6, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
+        write(msg3, '(A, I13, A, F10.6, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
+        write(msg4, '(A, I12, A, F10.6, A)') "check iteration allocate arrays", i, " (", allocation_durations(i), " s)"
+        write(msg5, '(A, I10, A, F10.6, A)') "check iteration deallocate arrays", i, " (", deallocation_durations(i), " s)"
+        write(msg6, '(A, I18, A, F11.6, A)') "check iteration full loop", i, " (", loop_durations(i), " s)"
         print *, trim(msg1)
         print *, trim(msg2)
         print *, trim(msg3)
