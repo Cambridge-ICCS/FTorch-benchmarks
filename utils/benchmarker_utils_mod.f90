@@ -184,13 +184,13 @@ module utils
 
   end subroutine print_time_stats_dp
 
-  subroutine setup(model_dir, model_name, ntimes, n, alloc_in_loop, explicit_reshape)
+  subroutine setup(model_dir, model_name, ntimes, n, alloc_in_loop, explicit_reshape, use_cuda)
 
     implicit none
 
     character(len=:), allocatable, intent(inout) :: model_dir, model_name
     integer, intent(out) :: ntimes, n
-    logical, intent(out), optional :: alloc_in_loop, explicit_reshape
+    logical, intent(out), optional :: alloc_in_loop, explicit_reshape, use_cuda
 
     character(len=1024) :: model_dir_temp, model_name_temp
     character(len=16) :: ntimes_char, n_char
@@ -198,8 +198,8 @@ module utils
     integer :: i
 
     ! Parse required arguments
-    if (command_argument_count() .lt. 4 .or. command_argument_count() .gt. 6) then
-      call error_mesg(__FILE__, __LINE__, "Usage: benchmarker <model-dir> <model-name> <ntimes> <N> <--alloc_in_loop[optional]> <--explicit_reshape[optional]>")
+    if (command_argument_count() .lt. 4 .or. command_argument_count() .gt. 7) then
+      call error_mesg(__FILE__, __LINE__, "Usage: benchmarker <model-dir> <model-name> <ntimes> <N> <--alloc_in_loop[optional]> <--explicit_reshape[optional]> <--use_cuda[optional>")
     endif
 
     call get_command_argument(1, model_dir_temp)
@@ -214,11 +214,15 @@ module utils
 
     write(*,'("Running model: ", A, "/", A, " ", I0, " times.")') model_dir, model_name, ntimes
 
+    ! Set default flag values
     if (present(alloc_in_loop)) then
       alloc_in_loop = .false.
     end if
     if (present(explicit_reshape)) then
       explicit_reshape = .false.
+    end if
+    if (present(use_cuda)) then
+      use_cuda = .false.
     end if
 
     if (command_argument_count() .gt. 4) then
@@ -246,6 +250,15 @@ module utils
               stop
             end if
 
+          ! If --use_cuda is .true., use move input tensors to GPU
+          case ('--use_cuda')
+            if (present(use_cuda)) then
+              use_cuda = .true.
+            else
+              print '(2a, /)', 'use_cuda must be passed to setup() to use ', flag
+              stop
+            end if
+
           case default
             print '(2a, /)', 'Error: unrecognised command-line option: ', flag
             stop
@@ -265,6 +278,9 @@ module utils
     end if
     if (present(explicit_reshape)) then
       write(*,'("explicit_reshape=", L)') explicit_reshape
+    end if
+    if (present(use_cuda)) then
+      write(*,'("use_cuda=", L)') use_cuda
     end if
 
   end subroutine setup

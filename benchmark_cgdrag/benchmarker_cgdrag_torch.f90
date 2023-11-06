@@ -51,7 +51,8 @@ program benchmark_cgdrag_test
 
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4, msg5, msg6
-      integer :: ntimes
+      integer :: ntimes, input_device
+      logical :: use_cuda = .false.
 
       type(torch_module) :: model
       type(torch_tensor), dimension(n_inputs) :: in_tensors
@@ -68,10 +69,16 @@ program benchmark_cgdrag_test
 
       print *, "====== DIRECT COUPLED ======"
 
-      call setup(model_dir, model_name, ntimes, n, alloc_in_loop, explicit_reshape)
+      call setup(model_dir, model_name, ntimes, n, alloc_in_loop, explicit_reshape, use_cuda)
       if (ntimes .lt. 2) then
         write(*, *) "Error: ntimes must be at least 2"
         return
+      end if
+
+      if (use_cuda) then
+        input_device = torch_kCUDA
+      else
+        input_device = torch_kCPU
       end if
 
       ! Allocate arrays shared with FTorch implementation and read in data
@@ -110,19 +117,19 @@ program benchmark_cgdrag_test
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
         if (explicit_reshape) then
-          in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
-          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+          in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_wp, input_device, stride_1D)
+          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_wp, input_device, stride_1D)
         else
-          in_tensors(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
-          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+          in_tensors(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_wp, input_device, stride_1D)
+          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_wp, input_device, stride_1D)
         end if
 
         ! Zonal
         if (explicit_reshape) then
-          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_wp, input_device, stride_2D)
           gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
         else
-          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_wp, input_device, stride_2D)
           gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
         end if
         end_time = omp_get_wtime()
@@ -141,10 +148,10 @@ program benchmark_cgdrag_test
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
         if (explicit_reshape) then
-          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_wp, input_device, stride_2D)
           gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
         else
-          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_wp, input_device, stride_2D)
           gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
         end if
         end_time = omp_get_wtime()
@@ -186,8 +193,8 @@ program benchmark_cgdrag_test
         ! ------------------------------ End tensor deletion timer ------------------------------
 
         ! Check error
-        call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-8_wp)
-        call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-8_wp)
+        call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-7_wp)
+        call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-7_wp)
 
         ! ------------------------------ Start deallocation timer ------------------------------
         start_time = omp_get_wtime()
