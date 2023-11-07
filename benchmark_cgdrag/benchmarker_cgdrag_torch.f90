@@ -2,7 +2,7 @@ program benchmark_cgdrag_test
 
   use, intrinsic :: iso_c_binding
   use :: omp_lib, only : omp_get_wtime
-  use :: utils, only : assert, setup, print_time_stats
+  use :: utils, only : assert, setup, print_time_stats, print_all_time_stats
   use :: ftorch
   use :: precision, only: dp
 
@@ -10,153 +10,450 @@ program benchmark_cgdrag_test
 
   ! Use double precision, rather than wp defined in precision module
   integer, parameter :: wp = dp
+  integer, parameter :: torch_wp = torch_kFloat64
 
-  integer :: i, j, k, ii, jj, kk, n
-  real(dp) :: start_time, end_time
-  real(dp), allocatable :: durations(:)
+  call main()
 
-  integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
-  real(wp), parameter :: PI = 4.0 * ATAN(1.0)
-  real(wp), parameter :: RADIAN = 180.0 / PI
+  contains
 
-  real(wp), dimension(:,:,:), allocatable, target :: uuu, vvv, gwfcng_x, gwfcng_y
-  real(wp), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
-  real(wp), dimension(:,:), allocatable, target :: lat, psfc
-  integer(c_int), parameter :: n_inputs = 3
+    subroutine main()
 
-  ! Shape is the shape of the tensor we want to go into the torch
-  ! Stride is the mapping between the underlying data and the array
-  integer(c_int), parameter :: dims_2D = 2
-  integer(c_int64_t) :: shape_2D(dims_2D) = [I_MAX*J_MAX, K_MAX]
-  integer(c_int) :: stride_2D(dims_2D) = [1,2]
-  integer(c_int), parameter :: dims_1D = 2
-  integer(c_int64_t) :: shape_1D(dims_1D) = [I_MAX*J_MAX, 1]
-  integer(c_int) :: stride_1D(dims_1D) = [1,2]
-  integer(c_int), parameter :: dims_out = 2
-  integer(c_int64_t) :: shape_out(dims_out) = [I_MAX*J_MAX, K_MAX]
-  integer(c_int) :: stride_out(dims_out) = [1,2]
+      implicit none
 
-  real(wp), dimension(:,:), allocatable, target :: uuu_flattened, vvv_flattened
-  real(wp), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
+      integer :: i, j, n, ii
+      real(dp) :: start_time, end_time, start_loop_time, end_loop_time
+      real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations, inference_durations
+      real(dp), dimension(:), allocatable :: allocation_durations, deallocation_durations, tensor_creation_durations, tensor_deletion_durations
+      real(dp), dimension(:,:), allocatable :: all_durations
+      character(len=20), dimension(:), allocatable :: messages
 
-  character(len=:), allocatable :: model_dir, model_name
-  character(len=128) :: msg
-  integer :: ntimes
+      integer, parameter :: I_MAX=128, J_MAX=64, K_MAX=40
 
-  type(torch_module) :: model
-  type(torch_tensor), dimension(n_inputs) :: in_tensors
-  type(torch_tensor) :: gwfcng_x_tensor, gwfcng_y_tensor
+      real(wp), dimension(:,:,:), allocatable, target :: uuu, vvv, gwfcng_x, gwfcng_y
+      real(wp), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
+      real(wp), dimension(:,:), allocatable, target :: lat, psfc
 
-  print *, "====== DIRECT COUPLED ======"
+      real(wp), dimension(:,:), allocatable, target :: uuu_flattened, vvv_flattened
+      real(wp), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
+      real(wp), dimension(:,:), allocatable, target  :: gwfcng_x_flattened, gwfcng_y_flattened
 
-  call setup(model_dir, model_name, ntimes, n)
+      integer(c_int), parameter :: n_inputs = 3
 
-  allocate(durations(ntimes))
+      integer(c_int), parameter :: dims_1D = 2
+      integer(c_int), parameter :: dims_2D = 2
+      integer(c_int), parameter :: dims_out = 2
+      integer(c_int64_t) :: shape_2D(dims_2D) = [I_MAX * J_MAX, K_MAX]
+      integer(c_int) :: stride_2D(dims_2D) = [1, 2]
+      integer(c_int64_t) :: shape_1D(dims_1D) = [I_MAX * J_MAX, 1]
+      integer(c_int) :: stride_1D(dims_1D) = [1, 2]
+      integer(c_int64_t) :: shape_out(dims_out) = [I_MAX * J_MAX, K_MAX]
+      integer(c_int) :: stride_out(dims_out) = [1, 2]
 
-  ! Read gravity wave parameterisation data in from file
-  allocate(uuu(I_MAX, J_MAX, K_MAX))
-  allocate(vvv(I_MAX, J_MAX, K_MAX))
-  allocate(gwfcng_x(I_MAX, J_MAX, K_MAX))
-  allocate(gwfcng_y(I_MAX, J_MAX, K_MAX))
-  allocate(lat(I_MAX, J_MAX))
-  allocate(psfc(I_MAX, J_MAX))
-  ! Read in saved input (and output) values
-  open(10, file='../cgdrag_model/uuu.txt')
-  open(11, file='../cgdrag_model/vvv.txt')
-  open(12, file='../cgdrag_model/lat.txt')
-  open(13, file='../cgdrag_model/psfc.txt')
-  do i = 1, I_MAX
-      do j = 1, J_MAX
-          do k = 1, K_MAX
-              read(10, '(3(I4, 1X), E25.16)') ii, jj, kk, uuu(ii,jj,kk)
-              read(11, '(3(I4, 1X), E25.16)') ii, jj, kk, vvv(ii,jj,kk)
+      character(len=:), allocatable :: model_dir, model_name
+      character(len=128) :: msg1, msg2, msg3, msg4, msg5, msg6
+      integer :: ntimes
+
+      type(torch_module) :: model
+      type(torch_tensor), dimension(n_inputs) :: in_tensors
+      type(torch_tensor) :: gwfcng_x_tensor, gwfcng_y_tensor
+
+      ! Set flag to .true. via command line argument --explicit_reshape
+      ! to explicitly reshape flattened tensors. Default (.false.) is set in setup().
+      logical :: explicit_reshape
+
+      ! Set flag to .true. via command line argument --alloc_in_loop
+      ! to allocate/deallocate flattened arrays during each loop. Default (.false.) is set in setup().
+      ! Only used if explicit_reshape is .true.
+      logical :: alloc_in_loop
+
+      print *, "====== DIRECT COUPLED ======"
+
+      call setup(model_dir, model_name, ntimes, n, alloc_in_loop, explicit_reshape)
+      if (ntimes .lt. 2) then
+        write(*, *) "Error: ntimes must be at least 2"
+        return
+      end if
+
+      ! Allocate arrays shared with FTorch implementation and read in data
+      call init_common_arrays(ntimes, I_MAX, J_MAX, K_MAX, uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, &
+                              module_load_durations, module_delete_durations, loop_durations, allocation_durations, deallocation_durations, &
+                              tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, messages, &
+                              start_loop_time, end_loop_time, start_time, end_time)
+
+      ! Allocate arrays and flatten inputs and outputs if --explicit_reshape is set, but --alloc_in_loop is not
+      ! if --explicit_reshape and --alloc_in_loop are both set, this is done within each loop instead
+      if (.not. alloc_in_loop .and. explicit_reshape) then
+        call init_reshaped_arrays(I_MAX, J_MAX, K_MAX, uuu, vvv, lat, psfc, uuu_flattened, vvv_flattened, &
+                            lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
+      end if
+
+      ! Load model (creation/deletion timed at end)
+      model = torch_module_load(model_dir//"/"//model_name)
+
+      do i = 1, ntimes
+
+        ! ------------------------------ Start loop timer ----------------------------
+        start_loop_time = omp_get_wtime()
+
+        ! ------------------------------ Start allocation timer ----------------------------
+        start_time = omp_get_wtime()
+        ! Allocate arrays for flattened inputs and outputs if --alloc_in_loop and --explicit_reshape are set
+        if (alloc_in_loop .and. explicit_reshape) then
+          call init_reshaped_arrays(I_MAX, J_MAX, K_MAX, uuu, vvv, lat, psfc, uuu_flattened, vvv_flattened, &
+          lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
+        end if
+        end_time = omp_get_wtime()
+        allocation_durations(i) = end_time - start_time
+        ! ------------------------------ End allocation timer ----------------------------
+
+        ! Create input and output tensors for the model.
+        ! ------------------------------ Start tensor creation timer ------------------------------
+        start_time = omp_get_wtime()
+        if (explicit_reshape) then
+          in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+        else
+          in_tensors(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_wp, torch_kCPU, stride_1D)
+        end if
+
+        ! Zonal
+        if (explicit_reshape) then
+          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        else
+          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        end if
+        end_time = omp_get_wtime()
+        tensor_creation_durations(i) = end_time - start_time
+        ! ------------------------------ End tensor creation timer ------------------------------
+
+        ! Run model and Infer
+        ! ------------------------------ Start inference timer ------------------------------
+        start_time = omp_get_wtime()
+        call torch_module_forward(model, in_tensors, n_inputs, gwfcng_x_tensor)
+        end_time = omp_get_wtime()
+        inference_durations(i) = end_time - start_time
+        ! ------------------------------ End inference timer ------------------------------
+
+        ! Meridional
+        ! ------------------------------ Start tensor creation timer ------------------------------
+        start_time = omp_get_wtime()
+        if (explicit_reshape) then
+          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        else
+          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_wp, torch_kCPU, stride_2D)
+          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+        end if
+        end_time = omp_get_wtime()
+        tensor_creation_durations(i) = tensor_creation_durations(i) + (end_time - start_time)
+        ! ------------------------------ End tensor creation timer ------------------------------
+
+        ! Run model and Infer
+        ! ------------------------------ Start inference timer ------------------------------
+        start_time = omp_get_wtime()
+        call torch_module_forward(model, in_tensors, n_inputs, gwfcng_y_tensor)
+        end_time = omp_get_wtime()
+        inference_durations(i) = inference_durations(i) + (end_time - start_time)
+        ! ------------------------------ End inference timer ------------------------------
+
+        ! ------------------------------ Start inference timer ------------------------------
+        ! Include with inference, as necessary for useful output
+        start_time = omp_get_wtime()
+        if (explicit_reshape) then
+          ! Reshape, and assign to gwfcng
+          do j = 1, J_MAX
+            gwfcng_x(:, j, :) = gwfcng_x_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+            gwfcng_y(:, j, :) = gwfcng_y_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
           end do
-          read(12, '(2(I4, 1X), E25.16)') ii, jj, lat(ii,jj)
-          read(13, '(2(I4, 1X), E25.16)') ii, jj, psfc(ii,jj)
+        end if
+        end_time = omp_get_wtime()
+        inference_durations(i) = inference_durations(i) + (end_time - start_time)
+        ! ------------------------------ End inference timer ------------------------------
+
+        ! Clean up.
+        ! ------------------------------ Start tensor deletion timer ------------------------------
+        start_time = omp_get_wtime()
+        call torch_tensor_delete(gwfcng_y_tensor)
+        call torch_tensor_delete(gwfcng_x_tensor)
+        do ii = 1, n_inputs
+          call torch_tensor_delete(in_tensors(ii))
+        end do
+        end_time = omp_get_wtime()
+        tensor_deletion_durations(i) = end_time - start_time
+        ! ------------------------------ End tensor deletion timer ------------------------------
+
+        ! Check error
+        call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-8_wp)
+        call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-8_wp)
+
+        ! ------------------------------ Start deallocation timer ------------------------------
+        start_time = omp_get_wtime()
+        ! Deallocate arrays for flattened inputs and outputs if --alloc_in_loop and --explicit_reshape are set
+        if (alloc_in_loop .and. explicit_reshape) then
+          call deallocate_reshaped_arrays(uuu_flattened, vvv_flattened, lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
+        end if
+        end_time = omp_get_wtime()
+        deallocation_durations(i) = end_time - start_time
+        ! ------------------------------ End deallocation timer -----------------------------
+
+        end_loop_time = omp_get_wtime()
+        loop_durations(i) = end_loop_time - start_loop_time
+        ! ------------------------------ End loop timer ----------------------------
+
+        write(msg1, '(A, I18, A, F10.6, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
+        write(msg2, '(A, I13, A, F10.6, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
+        write(msg3, '(A, I13, A, F10.6, A)') "check iteration delete tensors", i, " (", tensor_deletion_durations(i), " s)"
+        write(msg4, '(A, I12, A, F10.6, A)') "check iteration allocate arrays", i, " (", allocation_durations(i), " s)"
+        write(msg5, '(A, I10, A, F10.6, A)') "check iteration deallocate arrays", i, " (", deallocation_durations(i), " s)"
+        write(msg6, '(A, I18, A, F11.6, A)') "check iteration full loop", i, " (", loop_durations(i), " s)"
+        print *, trim(msg1)
+        print *, trim(msg2)
+        print *, trim(msg3)
+        print *, trim(msg4)
+        print *, trim(msg5)
+        print *, trim(msg6)
+
       end do
-  end do
 
-  lat = lat*RADIAN
+      call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
 
-  model = torch_module_load(model_dir//"/"//model_name)
+      ! Call individual print for loop, to avoid adding to combined mean
+      call print_time_stats(loop_durations, "full loop")
 
-  ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
-  allocate( uuu_flattened(I_MAX*J_MAX, K_MAX) )
-  allocate( vvv_flattened(I_MAX*J_MAX, K_MAX) )
-  allocate( lat_reshaped(I_MAX*J_MAX, 1) )
-  allocate( psfc_reshaped(I_MAX*J_MAX, 1) )
+      all_durations(:, 1) = module_load_durations
+      all_durations(:, 2) = module_delete_durations
+      all_durations(:, 3) = allocation_durations
+      all_durations(:, 4) = deallocation_durations
+      all_durations(:, 5) = tensor_creation_durations
+      all_durations(:, 6) = tensor_deletion_durations
+      all_durations(:, 7) = inference_durations
+      messages = [character(len=20) :: "module creation", "module deletion", "array allocation", "array deallocation", &
+                  "tensor creation", "tensor deletion", "forward pass"]
+      call print_all_time_stats(all_durations, messages)
 
-  allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
-  allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
+      call deallocate_common_arrays(uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, module_load_durations, &
+                                    module_delete_durations, loop_durations, allocation_durations, deallocation_durations, &
+                                    tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, messages)
 
-  open(10,file="../cgdrag_model/forpy_reference_x.txt")
-  open(20,file="../cgdrag_model/forpy_reference_y.txt")
+      ! Deallocate arrays for flattened inputs and outputs if --explicit_reshape is set, but --alloc_in_loop is not
+      ! if --explicit_reshape and --alloc_in_loop are both set, this is done within each loop instead
+      if (.not. alloc_in_loop .and. explicit_reshape) then
+        call deallocate_reshaped_arrays(uuu_flattened, vvv_flattened, lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
+      end if
 
-  read(10,*) gwfcng_x_ref
-  read(20,*) gwfcng_y_ref
+    end subroutine main
 
-  close(10)
-  close(20)
+    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
 
-  do i = 1, ntimes
+      implicit none
 
-    do j=1,J_MAX
-        uuu_flattened((j-1)*I_MAX+1:j*I_MAX,:) = uuu(:,j,:)
-        vvv_flattened((j-1)*I_MAX+1:j*I_MAX,:) = vvv(:,j,:)
-        lat_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = lat(:,j)
-        psfc_reshaped((j-1)*I_MAX+1:j*I_MAX, 1) = psfc(:,j)
-    end do
+      integer, intent(in) :: ntimes
+      real(dp), dimension(:), intent(inout) :: module_load_durations, module_delete_durations
+      integer :: i
+      real(dp) :: start_time, end_time
+      character(len=*), intent(in) :: model_dir, model_name
+      type(torch_module) :: model
 
+      do i = 1, ntimes
+        ! ------------------------------ Start module load timer ------------------------------
+        start_time = omp_get_wtime()
+        model = torch_module_load(model_dir//"/"//model_name)
+        end_time = omp_get_wtime()
+        module_load_durations(i) = end_time - start_time
+        ! ------------------------------ End module load timer ------------------------------
 
-    ! Create input and output tensors for the model.
-    in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
-    in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_kFloat64, torch_kCPU, stride_1D)
+        ! ------------------------------ Start module deletion timer ------------------------------
+        start_time = omp_get_wtime()
+        call torch_module_delete(model)
+        end_time = omp_get_wtime()
+        module_delete_durations(i) = end_time - start_time
+        ! ------------------------------ End module deletion timer ------------------------------
+      end do
 
-    ! Zonal
-    in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
-    gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
-    ! Run model and Infer
-    call torch_module_forward(model, in_tensors, n_inputs, gwfcng_x_tensor)
+    end subroutine time_module
 
-    ! Meridional
-    in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_kFloat64, torch_kCPU, stride_2D)
-    gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_kFloat64, torch_kCPU, stride_out)
+    subroutine init_common_arrays(ntimes, I_MAX, J_MAX, K_MAX, uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, &
+                                  module_load_durations, module_delete_durations, loop_durations, allocation_durations, &
+                                  deallocation_durations, tensor_creation_durations, tensor_deletion_durations, inference_durations, &
+                                  all_durations, messages, start_loop_time, end_loop_time, start_time, end_time)
 
-    ! Run model and Infer
-    start_time = omp_get_wtime()
-    call torch_module_forward(model, in_tensors, n_inputs, gwfcng_y_tensor)
-    end_time = omp_get_wtime()
+      implicit none
 
-    ! Clean up.
-    call torch_tensor_delete(gwfcng_y_tensor)
-    call torch_tensor_delete(gwfcng_x_tensor)
-    do ii = 1, n_inputs
-      call torch_tensor_delete(in_tensors(ii))
-    end do
+      integer, intent(in):: ntimes, I_MAX, J_MAX, K_MAX
 
-    durations(i) = end_time-start_time
-    ! the forward model is deliberately non-symmetric to check for difference in Fortran and C--type arrays.
-    write(msg, '(A, I8, A, F10.3, A)') "check iteration ", i, " (", durations(i), " s) [omp]"
-    print *, trim(msg)
+      real(wp), intent(out), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
+      real(wp), intent(out), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
+      real(wp), intent(out), dimension(:,:), allocatable :: lat, psfc
 
-    ! Check error
-    call assert(gwfcng_x, gwfcng_x_ref, "Check x", rtol_opt=1.0e-8_wp)
-    call assert(gwfcng_y, gwfcng_y_ref, "Check y", rtol_opt=1.0e-8_wp)
+      real(dp), intent(out), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations, inference_durations
+      real(dp), intent(out), dimension(:), allocatable :: allocation_durations, deallocation_durations, tensor_creation_durations, tensor_deletion_durations
+      real(dp), intent(out), dimension(:,:), allocatable :: all_durations
+      character(len=20), intent(out), dimension(:), allocatable :: messages
 
-  end do
+      real(dp), intent(out) :: start_loop_time, end_loop_time, start_time, end_time
 
-  call print_time_stats(durations)
+      real(wp), parameter :: PI = 4.0 * ATAN(1.0)
+      real(wp), parameter :: RADIAN = 180.0 / PI
 
-  call torch_module_delete(model)
+      integer :: i, j, k, ii, jj, kk
 
-  deallocate(uuu)
-  deallocate(vvv)
-  deallocate(gwfcng_x)
-  deallocate(gwfcng_y)
-  deallocate(lat)
-  deallocate(psfc)
-  deallocate(durations)
-  deallocate(gwfcng_x_ref)
-  deallocate(gwfcng_y_ref)
+      ! Read gravity wave parameterisation data in from file
+      allocate(uuu(I_MAX, J_MAX, K_MAX))
+      allocate(vvv(I_MAX, J_MAX, K_MAX))
+      allocate(gwfcng_x(I_MAX, J_MAX, K_MAX))
+      allocate(gwfcng_y(I_MAX, J_MAX, K_MAX))
+      allocate(lat(I_MAX, J_MAX))
+      allocate(psfc(I_MAX, J_MAX))
+
+      ! Read in saved input (and output) values
+      open(10, file='../cgdrag_model/uuu.txt')
+      open(11, file='../cgdrag_model/vvv.txt')
+      open(12, file='../cgdrag_model/lat.txt')
+      open(13, file='../cgdrag_model/psfc.txt')
+
+      do i = 1, I_MAX
+        do j = 1, J_MAX
+          do k = 1, K_MAX
+            read(10, '(3(I4, 1X), E25.16)') ii, jj, kk, uuu(ii, jj, kk)
+            read(11, '(3(I4, 1X), E25.16)') ii, jj, kk, vvv(ii, jj, kk)
+            end do
+          read(12, '(2(I4, 1X), E25.16)') ii, jj, lat(ii, jj)
+          read(13, '(2(I4, 1X), E25.16)') ii, jj, psfc(ii, jj)
+        end do
+      end do
+
+      lat = lat * RADIAN
+
+      ! Read in reference data
+      allocate(gwfcng_x_ref(I_MAX, J_MAX, K_MAX))
+      allocate(gwfcng_y_ref(I_MAX, J_MAX, K_MAX))
+      open(14,file="../cgdrag_model/forpy_reference_x.txt")
+      open(15,file="../cgdrag_model/forpy_reference_y.txt")
+      read(14,*) gwfcng_x_ref
+      read(15,*) gwfcng_y_ref
+
+      close(10)
+      close(11)
+      close(12)
+      close(13)
+      close(14)
+      close(15)
+
+      ! Allocate arrays for timings
+      allocate(module_load_durations(ntimes))
+      allocate(module_delete_durations(ntimes))
+      allocate(loop_durations(ntimes))
+      allocate(allocation_durations(ntimes))
+      allocate(deallocation_durations(ntimes))
+      allocate(tensor_creation_durations(ntimes))
+      allocate(tensor_deletion_durations(ntimes))
+      allocate(inference_durations(ntimes))
+      allocate(all_durations(ntimes, 7))
+      allocate(messages(7))
+
+      ! Initialise timings with arbitrary large values
+      module_load_durations(:) = 100.
+      module_delete_durations(:) = 100.
+      loop_durations(:) = 100.
+      allocation_durations(:) = 100.
+      deallocation_durations(:) = 100.
+      tensor_creation_durations(:) = 100.
+      tensor_deletion_durations(ntimes) = 100.
+      inference_durations(ntimes) = 100.
+      all_durations(:, :) = 100.
+      start_loop_time = 1000.
+      end_loop_time = 3000.
+      start_time = 1000.
+      end_time = 3000.
+
+    end subroutine init_common_arrays
+
+    subroutine init_reshaped_arrays(I_MAX, J_MAX, K_MAX, uuu, vvv, lat, psfc, uuu_flattened, vvv_flattened, &
+                                    lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
+
+      implicit none
+
+      integer, intent(in):: I_MAX, J_MAX, K_MAX
+      real(wp), intent(in), dimension(:,:,:), allocatable :: uuu, vvv
+      real(wp), intent(in), dimension(:,:), allocatable :: lat, psfc
+
+      real(wp), intent(out), dimension(:,:), allocatable :: uuu_flattened, vvv_flattened
+      real(wp), intent(out), dimension(:,:), allocatable :: lat_reshaped, psfc_reshaped
+      real(wp), intent(out), dimension(:,:), allocatable :: gwfcng_x_flattened, gwfcng_y_flattened
+
+      integer :: j
+
+      ! flatten data (nlat, nlon, n) --> (nlat*nlon, n)
+      allocate(uuu_flattened(I_MAX * J_MAX, K_MAX))
+      allocate(vvv_flattened(I_MAX * J_MAX, K_MAX))
+      allocate(lat_reshaped(I_MAX * J_MAX, 1))
+      allocate(psfc_reshaped(I_MAX * J_MAX, 1))
+      allocate(gwfcng_x_flattened(I_MAX * J_MAX, K_MAX))
+      allocate(gwfcng_y_flattened(I_MAX * J_MAX, K_MAX))
+
+      do j = 1, J_MAX
+      uuu_flattened((j - 1) * I_MAX + 1:j * I_MAX, :) = uuu(:, j, :)
+      vvv_flattened((j - 1) * I_MAX + 1:j * I_MAX, :) = vvv(:, j, :)
+      lat_reshaped((j - 1) * I_MAX + 1:j * I_MAX, 1) = lat(:, j)
+      psfc_reshaped((j - 1) * I_MAX + 1:j * I_MAX, 1) = psfc(:, j)
+      end do
+
+    end subroutine init_reshaped_arrays
+
+    subroutine deallocate_common_arrays(uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, module_load_durations, &
+                                        module_delete_durations, loop_durations, allocation_durations, deallocation_durations, &
+                                        tensor_creation_durations, tensor_deletion_durations, inference_durations, all_durations, messages)
+
+      implicit none
+
+      real(dp), intent(inout), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations, inference_durations
+      real(dp), intent(inout), dimension(:), allocatable :: allocation_durations, deallocation_durations, tensor_creation_durations, tensor_deletion_durations
+      real(dp), intent(inout), dimension(:,:), allocatable :: all_durations
+      character(len=20), intent(inout), dimension(:), allocatable :: messages
+
+      real(wp), intent(inout), dimension(:,:,:), allocatable :: uuu, vvv, gwfcng_x, gwfcng_y
+      real(wp), intent(inout), dimension(:,:,:), allocatable :: gwfcng_x_ref, gwfcng_y_ref
+      real(wp), intent(inout), dimension(:,:), allocatable :: lat, psfc
+
+      deallocate(module_load_durations)
+      deallocate(module_delete_durations)
+      deallocate(loop_durations)
+      deallocate(allocation_durations)
+      deallocate(deallocation_durations)
+      deallocate(tensor_creation_durations)
+      deallocate(tensor_deletion_durations)
+      deallocate(inference_durations)
+      deallocate(all_durations)
+      deallocate(messages)
+      deallocate(uuu)
+      deallocate(vvv)
+      deallocate(gwfcng_x)
+      deallocate(gwfcng_y)
+      deallocate(gwfcng_x_ref)
+      deallocate(gwfcng_y_ref)
+      deallocate(lat)
+      deallocate(psfc)
+
+    end subroutine deallocate_common_arrays
+
+    subroutine deallocate_reshaped_arrays(uuu_flattened, vvv_flattened, lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
+
+      implicit none
+
+      real(wp), intent(inout), dimension(:,:), allocatable :: uuu_flattened, vvv_flattened
+      real(wp), intent(inout), dimension(:,:), allocatable :: lat_reshaped, psfc_reshaped
+      real(wp), intent(inout), dimension(:,:), allocatable :: gwfcng_x_flattened, gwfcng_y_flattened
+
+      deallocate(uuu_flattened)
+      deallocate(vvv_flattened)
+      deallocate(lat_reshaped)
+      deallocate(psfc_reshaped)
+      deallocate(gwfcng_x_flattened)
+      deallocate(gwfcng_y_flattened)
+
+    end subroutine deallocate_reshaped_arrays
 
 end program benchmark_cgdrag_test
