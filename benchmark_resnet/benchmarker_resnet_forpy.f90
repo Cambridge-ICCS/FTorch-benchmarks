@@ -19,11 +19,11 @@ program benchmark_resnet
 
       implicit none
 
-      integer :: i, n
+      integer :: i, j, n
       real(wp), dimension(:,:,:,:), allocatable, asynchronous :: in_data
       real(wp), dimension(:,:), allocatable, asynchronous :: out_data
 
-      real(dp) :: start_time, end_time, start_loop_time, end_loop_time
+      real(dp) :: start_time, end_time, start_loop_time, end_loop_time, start_inference_time, end_inference_time, inference_time
       real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations
       real(dp), dimension(:), allocatable :: inference_durations, tensor_creation_durations, tensor_deletion_durations
       real(dp), dimension(:,:), allocatable :: all_durations
@@ -35,7 +35,7 @@ program benchmark_resnet
       type(tuple) :: args
 
       character(len=:), allocatable :: model_dir, model_name
-      character(len=128) :: msg1, msg2, msg3, msg4
+      character(len=128) :: msg1, msg2, msg3, msg4, msg5
       integer :: ntimes
 
       type(ndarray) :: out_data_nd, in_data_nd
@@ -123,6 +123,17 @@ program benchmark_resnet
         inference_durations(i) = end_time - start_time
         ! ------------------------------ End inference timer -----------------------------
 
+        if (i == ntimes) then
+          ! ------------------------------ Start inference long timer ------------------------------
+          start_inference_time = omp_get_wtime()
+          do j = 1, ntimes
+            ie = call_py_noret(run_emulator, "compute", args)
+          end do
+          end_inference_time = omp_get_wtime()
+          inference_time = (end_inference_time - start_inference_time) / ntimes
+          ! ------------------------------ End inference long timer -------------------------------
+        end if
+
         if (ie .ne. 0) then
             call err_print
             call error_mesg(__FILE__, __LINE__, "inference call failed")
@@ -173,6 +184,9 @@ program benchmark_resnet
       all_durations(:, 5) = inference_durations
       messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
       call print_all_time_stats(all_durations, messages)
+
+      write(msg5, '(A, F11.6)') "Long mean inference (s):", inference_time
+      print *, trim(msg5)
 
       deallocate(in_data)
       deallocate(out_data)

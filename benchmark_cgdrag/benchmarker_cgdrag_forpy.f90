@@ -22,8 +22,8 @@ program benchmark_cgdrag_test
 
       implicit none
 
-      integer :: i, j, n
-      real(dp) :: start_time, end_time, start_loop_time, end_loop_time
+      integer :: i, j, k, n
+      real(dp) :: start_time, end_time, start_loop_time, end_loop_time, start_inference_time, end_inference_time, inference_time
       real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations, inference_durations
       real(dp), dimension(:), allocatable :: allocation_durations, deallocation_durations, tensor_creation_durations, tensor_deletion_durations
       real(dp), dimension(:,:), allocatable :: all_durations
@@ -45,7 +45,7 @@ program benchmark_cgdrag_test
       type(tuple) :: args
 
       character(len=:), allocatable :: model_dir, model_name
-      character(len=128) :: msg1, msg2, msg3, msg4, msg5, msg6
+      character(len=128) :: msg1, msg2, msg3, msg4, msg5, msg6, msg7
       integer :: ntimes
 
       type(ndarray) :: uuu_nd, vvv_nd, gwfcng_x_nd, gwfcng_y_nd, lat_nd, psfc_nd
@@ -131,6 +131,17 @@ program benchmark_cgdrag_test
             call error_mesg(__FILE__, __LINE__, "inference call failed")
         end if
 
+        if (i == ntimes) then
+          ! ------------------------------ Start inference long timer ------------------------------
+          start_inference_time = omp_get_wtime()
+          do k = 1, ntimes
+            ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
+          end do
+          end_inference_time = omp_get_wtime()
+          inference_time = (end_inference_time - start_inference_time) / ntimes
+          ! ------------------------------ End inference long timer -------------------------------
+        end if
+
         ! create model input args as tuple
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
@@ -152,6 +163,17 @@ program benchmark_cgdrag_test
             call error_mesg(__FILE__, __LINE__, "inference call failed")
         end if
 
+        if (i == ntimes) then
+          ! ------------------------------ Start inference long timer ------------------------------
+          start_inference_time = omp_get_wtime()
+          do k = 1, ntimes
+            ie = call_py_noret(run_emulator, "compute_reshape_drag", args)
+          end do
+          end_inference_time = omp_get_wtime()
+          inference_time = inference_time + ((end_inference_time - start_inference_time) / ntimes)
+          ! ------------------------------ End inference long timer -------------------------------
+        end if
+
         ! ------------------------------ Start inference timer ------------------------------
         ! Include with inference, as necessary for useful output
         start_time = omp_get_wtime()
@@ -163,6 +185,21 @@ program benchmark_cgdrag_test
         end_time = omp_get_wtime()
         inference_durations(i) = inference_durations(i) + (end_time - start_time)
         ! ------------------------------ End inference timer ------------------------------
+
+        if (i == ntimes) then
+          ! ------------------------------ Start inference long timer ------------------------------
+          start_inference_time = omp_get_wtime()
+          do k = 1, ntimes
+            ! Reshape, and assign to gwfcng
+            do j = 1, J_MAX
+              gwfcng_x(:, j, :) = gwfcng_x_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+              gwfcng_y(:, j, :) = gwfcng_y_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+            end do
+          end do
+          end_inference_time = omp_get_wtime()
+          inference_time = inference_time + ((end_inference_time - start_inference_time) / ntimes)
+          ! ------------------------------ End inference long timer -------------------------------
+        end if
 
         ! Clean up.
         ! ------------------------------ Start tensor deletion timer ------------------------------
@@ -225,6 +262,9 @@ program benchmark_cgdrag_test
       messages = [character(len=20) :: "module creation", "module deletion", "array allocation", "array deallocation", &
                   "tensor creation", "tensor deletion", "forward pass"]
       call print_all_time_stats(all_durations, messages)
+
+      write(msg7, '(A, F11.6)') "Long mean inference (s):", inference_time
+      print *, trim(msg7)
 
       call deallocate_common_arrays(uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, module_load_durations, &
                                     module_delete_durations, loop_durations, allocation_durations, deallocation_durations, &

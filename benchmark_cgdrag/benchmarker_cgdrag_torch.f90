@@ -20,8 +20,8 @@ program benchmark_cgdrag_test
 
       implicit none
 
-      integer :: i, j, n, ii
-      real(dp) :: start_time, end_time, start_loop_time, end_loop_time
+      integer :: i, j, k, n, ii
+      real(dp) :: start_time, end_time, start_loop_time, end_loop_time, start_inference_time, end_inference_time, inference_time
       real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations, inference_durations
       real(dp), dimension(:), allocatable :: allocation_durations, deallocation_durations, tensor_creation_durations, tensor_deletion_durations
       real(dp), dimension(:,:), allocatable :: all_durations
@@ -50,7 +50,7 @@ program benchmark_cgdrag_test
       integer(c_int) :: stride_out(dims_out) = [1, 2]
 
       character(len=:), allocatable :: model_dir, model_name
-      character(len=128) :: msg1, msg2, msg3, msg4, msg5, msg6
+      character(len=128) :: msg1, msg2, msg3, msg4, msg5, msg6, msg7
       integer :: ntimes, input_device
       logical :: use_cuda = .false.
 
@@ -144,6 +144,17 @@ program benchmark_cgdrag_test
         inference_durations(i) = end_time - start_time
         ! ------------------------------ End inference timer ------------------------------
 
+        if (i == ntimes) then
+          ! ------------------------------ Start inference long timer ------------------------------
+          start_inference_time = omp_get_wtime()
+          do k = 1, ntimes
+            call torch_module_forward(model, in_tensors, n_inputs, gwfcng_x_tensor)
+          end do
+          end_inference_time = omp_get_wtime()
+          inference_time = (end_inference_time - start_inference_time) / ntimes
+          ! ------------------------------ End inference long timer -------------------------------
+        end if
+
         ! Meridional
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
@@ -166,6 +177,17 @@ program benchmark_cgdrag_test
         inference_durations(i) = inference_durations(i) + (end_time - start_time)
         ! ------------------------------ End inference timer ------------------------------
 
+        if (i == ntimes) then
+          ! ------------------------------ Start inference long timer ------------------------------
+          start_inference_time = omp_get_wtime()
+          do k = 1, ntimes
+            call torch_module_forward(model, in_tensors, n_inputs, gwfcng_y_tensor)
+          end do
+          end_inference_time = omp_get_wtime()
+          inference_time = inference_time + ((end_inference_time - start_inference_time) / ntimes)
+          ! ------------------------------ End inference long timer -------------------------------
+        end if
+
         ! ------------------------------ Start inference timer ------------------------------
         ! Include with inference, as necessary for useful output
         start_time = omp_get_wtime()
@@ -179,6 +201,23 @@ program benchmark_cgdrag_test
         end_time = omp_get_wtime()
         inference_durations(i) = inference_durations(i) + (end_time - start_time)
         ! ------------------------------ End inference timer ------------------------------
+
+        if (i == ntimes) then
+          ! ------------------------------ Start inference long timer ------------------------------
+          start_inference_time = omp_get_wtime()
+          do k = 1, ntimes
+            if (explicit_reshape) then
+              ! Reshape, and assign to gwfcng
+              do j = 1, J_MAX
+                gwfcng_x(:, j, :) = gwfcng_x_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+                gwfcng_y(:, j, :) = gwfcng_y_flattened((j - 1) * I_MAX + 1:j * I_MAX, :)
+              end do
+            end if
+          end do
+          end_inference_time = omp_get_wtime()
+          inference_time = inference_time + ((end_inference_time - start_inference_time) / ntimes)
+          ! ------------------------------ End inference long timer -------------------------------
+        end if
 
         ! Clean up.
         ! ------------------------------ Start tensor deletion timer ------------------------------
@@ -240,6 +279,9 @@ program benchmark_cgdrag_test
       messages = [character(len=20) :: "module creation", "module deletion", "array allocation", "array deallocation", &
                   "tensor creation", "tensor deletion", "forward pass"]
       call print_all_time_stats(all_durations, messages)
+
+      write(msg7, '(A, F11.6)') "Long mean inference (s):", inference_time
+      print *, trim(msg7)
 
       call deallocate_common_arrays(uuu, vvv, gwfcng_x, gwfcng_y, gwfcng_x_ref, gwfcng_y_ref, lat, psfc, module_load_durations, &
                                     module_delete_durations, loop_durations, allocation_durations, deallocation_durations, &
