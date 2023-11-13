@@ -22,13 +22,17 @@ def initialize_ts(*args):
 
 
 # Initialize everything
-def initialize():
+def initialize(device_str: str = "cpu"):
     """
     Initialize a StrideNet model.
 
-    """
-
+    Parameters
+    __________
+    device_str : str
+        Device to load model. Must be either "cpu" or "cuda".
     device_str = "cpu"
+
+    """
     model = m.StrideNet().to(device_str)
 
     # Load weights and set to evaluation mode.

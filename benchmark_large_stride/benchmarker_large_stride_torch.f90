@@ -33,7 +33,8 @@ program benchmark_stride_test
 
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4
-      integer :: ntimes
+      integer :: ntimes, input_device
+      logical :: use_cuda = .false.
 
       type(torch_tensor) :: result_tensor
       type(torch_tensor), dimension(n_inputs), target :: input_array
@@ -41,7 +42,13 @@ program benchmark_stride_test
 
       print *, "====== DIRECT COUPLED ======"
 
-      call setup(model_dir, model_name, ntimes, n)
+      call setup(model_dir, model_name, ntimes, n, use_cuda=use_cuda)
+
+      if (use_cuda) then
+        input_device = torch_kCUDA
+      else
+        input_device = torch_kCPU
+      end if
 
       allocate(big_array(n, n))
       allocate(big_result(n, n))
@@ -88,7 +95,7 @@ program benchmark_stride_test
         ! Create input and output tensors for the model.
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
-        input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_wp, torch_kCPU, stride_2d)
+        input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_wp, input_device, stride_2d)
         result_tensor = torch_tensor_from_blob(c_loc(big_result), 2, shape_2d, torch_wp, torch_kCPU, stride_2d)
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time

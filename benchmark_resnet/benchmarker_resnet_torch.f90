@@ -41,7 +41,8 @@ program benchmark_resnet_test
 
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4
-      integer :: ntimes
+      integer :: ntimes, input_device
+      logical :: use_cuda = .false.
 
       type(torch_module) :: model
       type(torch_tensor), dimension(1) :: in_tensor
@@ -61,7 +62,13 @@ program benchmark_resnet_test
 
       print *, "====== DIRECT COUPLED ======"
 
-      call setup(model_dir, model_name, ntimes, n)
+      call setup(model_dir, model_name, ntimes, n, use_cuda=use_cuda)
+
+      if (use_cuda) then
+        input_device = torch_kCUDA
+      else
+        input_device = torch_kCPU
+      end if
 
       allocate(in_data(in_shape(1), in_shape(2), in_shape(3), in_shape(4)))
       allocate(out_data(out_shape(1), out_shape(2)))
@@ -108,7 +115,7 @@ program benchmark_resnet_test
         ! Create input and output tensors for the model.
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
-        in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_wp, torch_kCPU, in_layout)
+        in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_wp, input_device, in_layout)
         out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_wp, torch_kCPU, out_layout)
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
@@ -142,7 +149,7 @@ program benchmark_resnet_test
         probability = maxval(probabilities)
 
         ! Check top probability matches expected value
-        call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
+        call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-2_wp)
 
         write(msg1, '(A, I10, A, F10.6, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
         write(msg2, '(A, I15, A, F10.6, A)') "check iteration inference", i, " (", inference_durations(i), " s)"

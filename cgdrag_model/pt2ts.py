@@ -80,11 +80,27 @@ if __name__ == "__main__":
     trained_model.eval()
 
     # FPTLIB-TODO
-    # Generate a dummy input Tensor `dummy_input` to the model of appropriate size.
+    # Generate dummy input Tensors `trained_model_dummy_input` to the model of appropriate size.
     # trained_model_dummy_input = torch.ones((512, 42))
     trained_model_dummy_input_u = torch.ones((512, 40), dtype=torch.float64)
     trained_model_dummy_input_l = torch.ones((512, 1), dtype=torch.float64)
     trained_model_dummy_input_p = torch.ones((512, 1), dtype=torch.float64)
+
+    # FPTLIB-TODO
+    # Set the name of the file you want to save the torchscript model to
+    saved_ts_filename = "saved_cgdrag_model_cpu.pt"
+
+    # FPTLIB-TODO
+    # If you want to save for inference on GPU uncomment the following lines:
+    # device = torch.device('cuda')
+    # trained_model = trained_model.to(device)
+    # trained_model.means = trained_model.means.to(device)
+    # trained_model.stds = trained_model.stds.to(device)
+    # trained_model.eval()
+    # trained_model_dummy_input_u = trained_model_dummy_input_u.to(device)
+    # trained_model_dummy_input_l = trained_model_dummy_input_l.to(device)
+    # trained_model_dummy_input_p = trained_model_dummy_input_p.to(device)
+    # saved_ts_filename = "saved_cgdrag_model_gpu.pt"
 
     # Run model over dummy input
     # If something isn't working This will generate an error
@@ -93,17 +109,6 @@ if __name__ == "__main__":
         trained_model_dummy_input_l,
         trained_model_dummy_input_p,
     )
-
-    # FPTLIB-TODO
-    # If you want to save for inference on GPU uncomment the following 4 lines:
-    # device = torch.device('cuda')
-    # model = model.to(device)
-    # model.eval()
-    # dummy_input = dummy_input.to(device)
-
-    # FPTLIB-TODO
-    # Set the name of the file you want to save the torchscript model to
-    saved_ts_filename = "saved_cgdrag_model_cpu.pt"
 
     # FPTLIB-TODO
     # Save the pytorch model using either scripting (recommended where possible) or tracing
@@ -121,6 +126,7 @@ if __name__ == "__main__":
     testing_input_u = 2.0 * trained_model_dummy_input_u
     testing_input_l = 2.0 * trained_model_dummy_input_l
     testing_input_p = 2.0 * trained_model_dummy_input_p
+
     trained_model_testing_output = trained_model(
         testing_input_u, testing_input_l, testing_input_p
     )
