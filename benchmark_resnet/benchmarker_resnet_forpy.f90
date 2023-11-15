@@ -37,6 +37,8 @@ program benchmark_resnet
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4
       integer :: ntimes
+      character(len=10) :: input_device
+      logical :: use_cuda = .false.
 
       type(ndarray) :: out_data_nd, in_data_nd
 
@@ -54,7 +56,13 @@ program benchmark_resnet
 
       print *, "====== FORPY ======"
 
-      call setup(model_dir, model_name, ntimes, n)
+      call setup(model_dir, model_name, ntimes, n, use_cuda=use_cuda)
+
+      if (use_cuda) then
+        input_device = "cuda"
+      else
+        input_device = "cpu"
+      end if
 
       allocate(in_data(1, 3, 224, 224))
       allocate(out_data(1, 1000))
@@ -92,7 +100,7 @@ program benchmark_resnet
 #else
       print *, "generate model in python runtime"
 #endif
-      call load_module(model_dir, model_name, run_emulator, model)
+      call load_module(model_dir, model_name, run_emulator, model, use_cuda)
 
       call load_data(data_file, tensor_length, in_data)
 
@@ -108,10 +116,11 @@ program benchmark_resnet
         ie = ndarray_create_nocopy(out_data_nd, out_data)
 
         ! create model input args as tuple
-        ie = tuple_create(args,3)
+        ie = tuple_create(args, 4)
         ie = args%setitem(0, model)
         ie = args%setitem(1, in_data_nd)
-        ie = args%setitem(2, out_data_nd)
+        ie = args%setitem(2, trim(input_device))
+        ie = args%setitem(3, out_data_nd)
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
         ! ------------------------------ End tensor creation timer ------------------------------
@@ -161,7 +170,9 @@ program benchmark_resnet
 
       end do
 
-      call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations, run_emulator, model)
+      module_load_durations(:) = 0.
+      module_delete_durations(:) = 0.
+      call forpy_finalize
 
       ! Call individual print for loop, to avoid adding to combined mean
       call print_time_stats(loop_durations, "full loop")
@@ -236,45 +247,12 @@ program benchmark_resnet
 
     end subroutine calc_probs
 
-    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations, run_emulator, model)
-
-      implicit none
-
-      integer, intent(in) :: ntimes
-      character(len=*), intent(in) :: model_dir, model_name
-      real(dp), dimension(:), intent(inout) :: module_load_durations, module_delete_durations
-      type(module_py), intent(out) :: run_emulator
-      type(object), intent(out) :: model
-
-      integer :: i
-      real(dp) :: start_time, end_time
-
-      do i = 1, ntimes
-        ! ------------------------------ Start module load timer ------------------------------
-        start_time = omp_get_wtime()
-        call load_module(model_dir, model_name, run_emulator, model)
-        end_time = omp_get_wtime()
-        module_load_durations(i) = end_time - start_time
-        ! ------------------------------ End module load timer ------------------------------
-
-        ! ------------------------------ Start module deletion timer ------------------------------
-        ! We can only call forpy_finalize once
-        if (i == ntimes) then
-          start_time = omp_get_wtime()
-          call forpy_finalize
-          end_time = omp_get_wtime()
-          module_delete_durations(:) = (end_time - start_time) / (ntimes + 1)
-        end if
-        ! ------------------------------ End module deletion timer ------------------------------
-      end do
-
-    end subroutine time_module
-
-    subroutine load_module(model_dir, model_name, run_emulator, model)
+    subroutine load_module(model_dir, model_name, run_emulator, model, use_cuda)
 
       implicit none
 
       character(len=*), intent(in) :: model_dir, model_name
+      logical, intent(in) :: use_cuda
       type(module_py), intent(out) :: run_emulator
       type(object), intent(out) :: model
 
@@ -301,7 +279,11 @@ program benchmark_resnet
 #ifdef USETS
       ! load torchscript saved model
       ie = tuple_create(args,1)
-      ie = str_create(filename, trim(model_dir//"/"//"saved_resnet18_model_cpu.pt"))
+      if (use_cuda) then
+      ie = str_create(filename, trim(model_dir//"/"//"saved_resnet18_model_gpu.pt"))
+      else
+        ie = str_create(filename, trim(model_dir//"/"//"saved_resnet18_model_cpu.pt"))
+      end if
       ie = args%setitem(0, filename)
       ie = call_py(model, run_emulator, "initialize_ts", args)
       call args%destroy

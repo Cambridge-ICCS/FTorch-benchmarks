@@ -225,7 +225,9 @@ program benchmark_cgdrag_test
 
       end do
 
-      call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
+      module_load_durations(:) = 0.
+      module_delete_durations(:) = 0.
+      ! call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
 
       ! Call individual print for loop, to avoid adding to combined mean
       call print_time_stats(loop_durations, "full loop")

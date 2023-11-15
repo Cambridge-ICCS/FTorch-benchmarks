@@ -69,22 +69,25 @@ def compute_reshape_drag(*args):
         output prellocated in MiMA (128, num_col, 40)
     num_col :
         # of latitudes on this proc
+    device : str
+        Device to move input_batch to. "cpu" (default) or "cuda".
 
     Returns
     -------
     Y_out :
         Results to be returned to MiMA
     """
-    model, wind, lat, p_surf, Y_out, num_col = args
+    model, wind, lat, p_surf, Y_out, num_col, device = args
+    device = torch.device(device)
 
     # Reshape and put all input variables together [wind, lat, p_surf]
-    wind_T = tensor(wind)
+    wind_T = tensor(wind).to(device)
 
     # lat_T = zeros((imax * num_col, 1), dtype=float64)
-    lat_T = tensor(lat)
+    lat_T = tensor(lat).to(device)
 
     # pressure_T = zeros((imax * num_col, 1), dtype=float64)
-    pressure_T = tensor(p_surf)
+    pressure_T = tensor(p_surf).to(device)
 
     # Apply model.
     with no_grad():
