@@ -163,7 +163,7 @@ def compute(*args):
         assert model.training is False
         output = model(input_batch)
 
-    result[:, :] = output
+    result[:, :] = output.cpu()
     return result
 
 

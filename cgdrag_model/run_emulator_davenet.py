@@ -4,7 +4,7 @@ Contains all python commands MiMA will use.
 It needs in the same directory as `arch_DaveNet.py` which describes the
 model architecture, and `network_wst.pkl` which contains the model weights.
 """
-from torch import load, device, no_grad, tensor, float64, jit
+from torch import load, device, no_grad, tensor, float64, jit, device
 import arch_davenet as m
 
 
@@ -77,17 +77,17 @@ def compute_reshape_drag(*args):
     Y_out :
         Results to be returned to MiMA
     """
-    model, wind, lat, p_surf, Y_out, num_col, device = args
-    device = torch.device(device)
+    model, wind, lat, p_surf, Y_out, num_col, input_device = args
+    input_device = device(input_device)
 
     # Reshape and put all input variables together [wind, lat, p_surf]
-    wind_T = tensor(wind).to(device)
+    wind_T = tensor(wind).to(input_device)
 
     # lat_T = zeros((imax * num_col, 1), dtype=float64)
-    lat_T = tensor(lat).to(device)
+    lat_T = tensor(lat).to(input_device)
 
     # pressure_T = zeros((imax * num_col, 1), dtype=float64)
-    pressure_T = tensor(p_surf).to(device)
+    pressure_T = tensor(p_surf).to(input_device)
 
     # Apply model.
     with no_grad():
@@ -97,7 +97,7 @@ def compute_reshape_drag(*args):
         temp = model(wind_T, pressure_T, lat_T)
 
     # Place in output array for MiMA.
-    Y_out[:, :] = temp
+    Y_out[:, :] = temp.cpu()
     del temp
 
     return Y_out

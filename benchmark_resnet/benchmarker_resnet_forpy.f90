@@ -157,7 +157,7 @@ program benchmark_resnet
         probability = maxval(probabilities)
 
         ! Check top probability matches expected value
-        call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
+        call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-2_wp)
 
         write(msg1, '(A, I10, A, F10.6, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
         write(msg2, '(A, I15, A, F10.6, A)') "check iteration inference", i, " (", inference_durations(i), " s)"

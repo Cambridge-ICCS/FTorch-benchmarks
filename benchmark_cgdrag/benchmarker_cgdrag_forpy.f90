@@ -123,7 +123,7 @@ program benchmark_cgdrag_test
         ie = args%setitem(3, psfc_nd)
         ie = args%setitem(4, gwfcng_x_nd)
         ie = args%setitem(5, J_MAX)
-        ie = args%setitem(6, input_device)
+        ie = args%setitem(6, trim(input_device))
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
         ! ------------------------------ End tensor creation timer ------------------------------
