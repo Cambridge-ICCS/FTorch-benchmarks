@@ -5,21 +5,21 @@ import pandas as pd
 
 
 def read_iteration_data(directory: str, filename: str, labels: list) -> pd.DataFrame:
-    """Read benchmarking data from each loop iteration
+    """Read benchmarking data from each loop iteration.
 
     Parameters
     ----------
-    directory: str
+    directory : str
         Directory of file containing benchmarking data to be read.
-    filename: str
-        Path to file containing benchmarking data to be read.
-    labels: list
+    filename : str
+        Name of file containing benchmarking data to be read.
+    labels : list
         List of labels in output file to read.
         List does not need to be complete, but must be given in order of output.
 
     Returns
     -------
-    df: pd.DataFrame
+    df : pd.DataFrame
         Dataframe of durations, with columns corresponding to each input label.
     """
     df = pd.DataFrame(columns=labels)
@@ -63,16 +63,16 @@ def read_summary_data(directory: str, filename: str, labels: list) -> dict:
 
     Parameters
     ----------
-    directory: str
+    directory : str
         Directory of file containing benchmarking data to be read.
-    filename: str
+    filename : str
         Path to file containing benchmarking data to be read.
-    labels: list
+    labels : list
         List of labels to read summary information for.
 
     Returns
     -------
-    results: dict
+    results : dict
         Nested dictionary with keys for each label passed, and nested keys for
         the mean, min, max and stddev for each label.
     """
@@ -118,13 +118,13 @@ def read_summary_data(directory: str, filename: str, labels: list) -> dict:
 
 
 def plot_df(df: pd.DataFrame, labels: list) -> None:
-    """Plot scatter plots for each column in input dataframe
+    """Plot scatter plots for each column in input dataframe.
 
     Parameters
     ----------
-        df: pd.DataFrame)
+        df : pd.DataFrame)
             Dataframe containing data to be plotted.
-        labels: list
+        labels : list
             List of columns in dataframe to plot.
     """
     # Create separate plots for each label.
@@ -138,14 +138,13 @@ def plot_df(df: pd.DataFrame, labels: list) -> None:
 
 
 def plot_summary_means(data: dict, labels: list) -> None:
-    """Plot a bar chart for each labelled duration comparing the files
-    specified by keys of the input data.
+    """Plot bar chart comparing durations for specified files and keys.
 
     Parameters
     ----------
-    data: dict
+    data : dict
         Dictionary of summary data in the form data[file][label][mean].
-    labels: list
+    labels : list
         List of summary labels to plot bar charts for.
     """
     alpha = 0.9
@@ -174,13 +173,13 @@ def plot_summary_means(data: dict, labels: list) -> None:
 
 
 def plot_summary_with_stddev(data: dict, labels: list) -> None:
-    """Plot scatter plot with error bars of summary data from benchmarking output files
+    """Plot scatter plot with error bars of summary data from benchmarking output files.
 
     Parameters
     ----------
-    data: dict
+    data : dict
         Dictionary of summary data in the form data[file][label][mean, stddev].
-    labels: list
+    labels : list
         List of summary labels to plot on the same graph.
     """
     # Loop over each file
@@ -223,4 +222,96 @@ def plot_summary_with_stddev(data: dict, labels: list) -> None:
             labels=labels,
             fontsize=7.5,
         )
+    plt.show()
+
+
+def read_slurm_walltime(filepath: str, labels: list) -> dict:
+    """Read benchmarking data from each loop iteration.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to file containing benchmarking data to be read.
+    labels : list
+        List of all benchmarks run, matching the run order.
+        Typically of the form [model]_[forpy/torch]_[cpu/gpu].
+
+    Returns
+    -------
+    benchmarks : dict
+        Dictionary of times, with keys corresponding to each input label.
+    """
+    print(f"Reading: {filepath}")
+
+    current_label = ""
+    i = 0
+    benchmarks = {}
+
+    with open(filepath) as f:
+        lines = f.readlines()
+        for line in lines:
+            if "Command being timed" in line:
+                # Cut from 'Command being timed: "./benchmarker_cgdrag_forpy...'
+                # to 'cgdrag_forpy'
+                current_label = line.split()[3][15:]
+                # print(current_label)
+            if "Elapsed (wall clock) time" in line:
+                if current_label in labels[i]:
+                    benchmarks[labels[i]] = convert_to_seconds(line.split()[7])
+                    i += 1
+
+    return benchmarks
+
+
+def convert_to_seconds(time_str: str):
+    """
+    Convert wall time string from /usr/bin/time to time in seconds.
+
+    Parameters
+    ----------
+    time_str : str
+        Time in the format h:mm:ss or m:ss.
+
+    Returns
+    -------
+    time : float
+        Time in seconds.
+    """
+    time = time_str.split(":")
+    if len(time) == 3:
+        return float(time[0]) * 3600 + float(time[1]) * 60 + float(time[2])
+    elif len(time) == 2:
+        return float(time[0]) * 60 + float(time[1])
+    else:
+        raise ValueError("Time format not supported. Expected format: h:mm:ss or m:ss")
+
+
+def plot_walltimes(benchmarks: dict, labels: list):
+    """Plot bar charts comparing walltimes for all labels given.
+
+    Parameters
+    ----------
+        benchmarks : dict
+            Dictionary of times, with keys corresponding to each input label.
+        labels : list
+            List containing subset of benchmark keys to plot.
+    """
+    alpha = 0.9
+    bar_width = 1
+
+    for i, label in enumerate(labels):
+        plt.bar(
+            np.arange(len(labels))[i],
+            benchmarks[label],
+            alpha=alpha,
+            width=bar_width,
+        )
+    # plt.yscale("log")
+    plt.ylim(0)
+    plt.xticks(
+        ticks=np.arange(len(labels)),
+        labels=labels,
+        fontsize=5,
+    )
+    plt.ylabel("Time / s")
     plt.show()
