@@ -24,8 +24,8 @@ program benchmark_resnet
       real(wp), dimension(:,:), allocatable, asynchronous :: out_data
 
       real(dp) :: start_time, end_time, start_loop_time, end_loop_time
-      real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations
-      real(dp), dimension(:), allocatable :: inference_durations, tensor_creation_durations, tensor_deletion_durations
+      real(dp), dimension(:), allocatable :: loop_durations, inference_durations
+      real(dp), dimension(:), allocatable :: tensor_creation_durations, tensor_deletion_durations
       real(dp), dimension(:,:), allocatable :: all_durations
       character(len=20), dimension(:), allocatable :: messages
 
@@ -67,18 +67,14 @@ program benchmark_resnet
       allocate(in_data(1, 3, 224, 224))
       allocate(out_data(1, 1000))
       allocate(probabilities(1, 1000))
-      allocate(module_load_durations(ntimes))
-      allocate(module_delete_durations(ntimes))
       allocate(loop_durations(ntimes))
       allocate(tensor_creation_durations(ntimes))
       allocate(tensor_deletion_durations(ntimes))
       allocate(inference_durations(ntimes))
-      allocate(all_durations(ntimes, 5))
-      allocate(messages(5))
+      allocate(all_durations(ntimes, 3))
+      allocate(messages(3))
 
       ! Initialise timings with arbitrary large values
-      module_load_durations(:) = 100.
-      module_delete_durations(:) = 100.
       loop_durations(:) = 100.
       tensor_creation_durations(:) = 100.
       tensor_deletion_durations(ntimes) = 100.
@@ -170,25 +166,19 @@ program benchmark_resnet
 
       end do
 
-      module_load_durations(:) = 0.
-      module_delete_durations(:) = 0.
       call forpy_finalize
 
       ! Call individual print for loop, to avoid adding to combined mean
       call print_time_stats(loop_durations, "full loop")
 
-      all_durations(:, 1) = module_load_durations
-      all_durations(:, 2) = module_delete_durations
-      all_durations(:, 3) = tensor_creation_durations
-      all_durations(:, 4) = tensor_deletion_durations
-      all_durations(:, 5) = inference_durations
-      messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
+      all_durations(:, 1) = tensor_creation_durations
+      all_durations(:, 2) = tensor_deletion_durations
+      all_durations(:, 3) = inference_durations
+      messages = [character(len=20) :: "tensor creation", "tensor deletion", "forward pass"]
       call print_all_time_stats(all_durations, messages)
 
       deallocate(in_data)
       deallocate(out_data)
-      deallocate(module_load_durations)
-      deallocate(module_delete_durations)
       deallocate(loop_durations)
       deallocate(tensor_creation_durations)
       deallocate(tensor_deletion_durations)

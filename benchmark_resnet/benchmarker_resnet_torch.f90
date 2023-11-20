@@ -23,8 +23,8 @@ program benchmark_resnet_test
 
       integer :: i, ii, n
       real(dp) :: start_time, end_time, start_loop_time, end_loop_time
-      real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations
-      real(dp), dimension(:), allocatable :: inference_durations, tensor_creation_durations, tensor_deletion_durations
+      real(dp), dimension(:), allocatable :: loop_durations, inference_durations
+      real(dp), dimension(:), allocatable :: tensor_creation_durations, tensor_deletion_durations
       real(dp), dimension(:,:), allocatable :: all_durations
       character(len=20), dimension(:), allocatable :: messages
 
@@ -74,18 +74,14 @@ program benchmark_resnet_test
       allocate(out_data(out_shape(1), out_shape(2)))
       allocate(probabilities(out_shape(1), out_shape(2)))
 
-      allocate(module_load_durations(ntimes))
-      allocate(module_delete_durations(ntimes))
       allocate(loop_durations(ntimes))
       allocate(tensor_creation_durations(ntimes))
       allocate(tensor_deletion_durations(ntimes))
       allocate(inference_durations(ntimes))
-      allocate(all_durations(ntimes, 5))
-      allocate(messages(5))
+      allocate(all_durations(ntimes, 3))
+      allocate(messages(3))
 
       ! Initialise timings with arbitrary large values
-      module_load_durations(:) = 100.
-      module_delete_durations(:) = 100.
       loop_durations(:) = 100.
       tensor_creation_durations(:) = 100.
       tensor_deletion_durations(ntimes) = 100.
@@ -165,25 +161,17 @@ program benchmark_resnet_test
       ! Delete model (creation/deletion timed at end)
       call torch_module_delete(model)
 
-      module_load_durations(:) = 0.
-      module_delete_durations(:) = 0.
-      ! call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
-
       ! Call individual print for loop, to avoid adding to combined mean
       call print_time_stats(loop_durations, "full loop")
 
-      all_durations(:, 1) = module_load_durations
-      all_durations(:, 2) = module_delete_durations
-      all_durations(:, 3) = tensor_creation_durations
-      all_durations(:, 4) = tensor_deletion_durations
-      all_durations(:, 5) = inference_durations
-      messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
+      all_durations(:, 1) = tensor_creation_durations
+      all_durations(:, 2) = tensor_deletion_durations
+      all_durations(:, 3) = inference_durations
+      messages = [character(len=20) :: "tensor creation", "tensor deletion", "forward pass"]
       call print_all_time_stats(all_durations, messages)
 
       deallocate(in_data)
       deallocate(out_data)
-      deallocate(module_load_durations)
-      deallocate(module_delete_durations)
       deallocate(loop_durations)
       deallocate(tensor_creation_durations)
       deallocate(tensor_deletion_durations)
@@ -241,34 +229,5 @@ program benchmark_resnet_test
       probabilities = probabilities / prob_sum
 
     end subroutine calc_probs
-
-    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
-
-      implicit none
-
-      integer, intent(in) :: ntimes
-      real(dp), dimension(:), intent(out) :: module_load_durations, module_delete_durations
-      integer :: i
-      real(dp) :: start_time, end_time
-      character(len=*), intent(in) :: model_dir, model_name
-      type(torch_module) :: model
-
-      do i = 1, ntimes
-        ! ------------------------------ Start module load timer ------------------------------
-        start_time = omp_get_wtime()
-        model = torch_module_load(model_dir//"/"//model_name)
-        end_time = omp_get_wtime()
-        module_load_durations(i) = end_time - start_time
-        ! ------------------------------ End module load timer ------------------------------
-
-        ! ------------------------------ Start module deletion timer ------------------------------
-        start_time = omp_get_wtime()
-        call torch_module_delete(model)
-        end_time = omp_get_wtime()
-        module_delete_durations(i) = end_time - start_time
-        ! ------------------------------ End module deletion timer ------------------------------
-      end do
-
-    end subroutine time_module
 
 end program benchmark_resnet_test
