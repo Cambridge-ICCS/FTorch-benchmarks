@@ -1,17 +1,14 @@
 program benchmark_resnet_test
 
-  use, intrinsic :: iso_c_binding, only: c_int64_t, c_loc
   use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert, setup, print_time_stats, print_all_time_stats
   ! Import our library for interfacing with PyTorch
   use :: ftorch
   ! Define working precision for C primitives and Fortran reals
   ! Precision must match `wp` in resnet18.py and `wp_torch` in pt2ts.py
-  use :: precision, only: c_wp, wp, dp
+  use :: precision, only: wp, dp
 
   implicit none
-
-  integer, parameter :: torch_wp = torch_kFloat32
 
   call main()
 
@@ -28,16 +25,16 @@ program benchmark_resnet_test
       real(dp), dimension(:,:), allocatable :: all_durations
       character(len=20), dimension(:), allocatable :: messages
 
-      real(c_wp), dimension(:,:,:,:), allocatable, target :: in_data
-      integer(c_int), parameter :: n_inputs = 1
-      real(c_wp), dimension(:,:), allocatable, target :: out_data
+      real(wp), dimension(:,:,:,:), allocatable, target :: in_data
+      real(wp), dimension(:,:), allocatable, target :: out_data
+      integer, parameter :: n_inputs = 1
 
-      integer(c_int), parameter :: in_dims = 4
-      integer(c_int64_t) :: in_shape(in_dims) = [1, 3, 224, 224]
-      integer(c_int) :: in_layout(in_dims) = [1,2,3,4]
-      integer(c_int), parameter :: out_dims = 2
-      integer(c_int64_t) :: out_shape(out_dims) = [1, 1000]
-      integer(c_int) :: out_layout(out_dims) = [1,2]
+      integer, parameter :: in_dims = 4
+      integer :: in_shape(in_dims) = [1, 3, 224, 224]
+      integer :: in_layout(in_dims) = [1, 2, 3, 4]
+      integer, parameter :: out_dims = 2
+      integer :: out_shape(out_dims) = [1, 1000]
+      integer :: out_layout(out_dims) = [1, 2]
 
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4
@@ -111,8 +108,8 @@ program benchmark_resnet_test
         ! Create input and output tensors for the model.
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
-        in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_wp, input_device, in_layout)
-        out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_wp, torch_kCPU, out_layout)
+        in_tensor(1) = torch_tensor_from_array(in_data, in_layout, input_device)
+        out_tensor = torch_tensor_from_array(out_data, out_layout, torch_kCPU)
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
         ! ------------------------------ End tensor creation timer ------------------------------
@@ -188,9 +185,9 @@ program benchmark_resnet_test
 
       character(len=*), intent(in) :: filename
       integer, intent(in) :: tensor_length
-      real(c_wp), dimension(:,:,:,:), intent(out) :: in_data
+      real(wp), dimension(:,:,:,:), intent(out) :: in_data
 
-      real(c_wp) :: flat_data(tensor_length)
+      real(wp) :: flat_data(tensor_length)
       integer :: ios
       character(len=100) :: ioerrmsg
 
@@ -219,7 +216,7 @@ program benchmark_resnet_test
 
       implicit none
 
-      real(c_wp), dimension(:,:), intent(in) :: out_data
+      real(wp), dimension(:,:), intent(in) :: out_data
       real(wp), dimension(:,:), intent(out) :: probabilities
       real(wp) :: prob_sum
 
