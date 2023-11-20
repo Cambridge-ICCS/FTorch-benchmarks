@@ -1,6 +1,6 @@
 program benchmark_cgdrag_test
 
-  use, intrinsic :: iso_c_binding
+  use, intrinsic :: iso_c_binding, only : c_loc, c_int, c_int64_t
   use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert, setup, print_time_stats, print_all_time_stats
   use :: ftorch
@@ -37,17 +37,17 @@ program benchmark_cgdrag_test
       real(wp), dimension(:,:), allocatable, target :: lat_reshaped, psfc_reshaped
       real(wp), dimension(:,:), allocatable, target  :: gwfcng_x_flattened, gwfcng_y_flattened
 
-      integer(c_int), parameter :: n_inputs = 3
+      integer, parameter :: n_inputs = 3
 
-      integer(c_int), parameter :: dims_1D = 2
-      integer(c_int), parameter :: dims_2D = 2
-      integer(c_int), parameter :: dims_out = 2
-      integer(c_int64_t) :: shape_2D(dims_2D) = [I_MAX * J_MAX, K_MAX]
-      integer(c_int) :: stride_2D(dims_2D) = [1, 2]
-      integer(c_int64_t) :: shape_1D(dims_1D) = [I_MAX * J_MAX, 1]
-      integer(c_int) :: stride_1D(dims_1D) = [1, 2]
-      integer(c_int64_t) :: shape_out(dims_out) = [I_MAX * J_MAX, K_MAX]
-      integer(c_int) :: stride_out(dims_out) = [1, 2]
+      integer, parameter :: dims_1D = 2
+      integer, parameter :: dims_2D = 2
+      integer, parameter :: dims_out = 2
+      integer :: shape_2D(dims_2D) = [I_MAX * J_MAX, K_MAX]
+      integer :: stride_2D(dims_2D) = [1, 2]
+      integer :: shape_1D(dims_1D) = [I_MAX * J_MAX, 1]
+      integer :: stride_1D(dims_1D) = [1, 2]
+      integer :: shape_out(dims_out) = [I_MAX * J_MAX, K_MAX]
+      integer :: stride_out(dims_out) = [1, 2]
 
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4, msg5, msg6
@@ -117,20 +117,20 @@ program benchmark_cgdrag_test
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
         if (explicit_reshape) then
-          in_tensors(3) = torch_tensor_from_blob(c_loc(lat_reshaped), dims_1D, shape_1D, torch_wp, input_device, stride_1D)
-          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc_reshaped), dims_1D, shape_1D, torch_wp, input_device, stride_1D)
+          in_tensors(3) = torch_tensor_from_array(lat_reshaped, stride_1D, input_device)
+          in_tensors(2) = torch_tensor_from_array(psfc_reshaped, stride_1D, input_device)
         else
-          in_tensors(3) = torch_tensor_from_blob(c_loc(lat), dims_1D, shape_1D, torch_wp, input_device, stride_1D)
-          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc), dims_1D, shape_1D, torch_wp, input_device, stride_1D)
+          in_tensors(3) = torch_tensor_from_blob(c_loc(lat), int(dims_1D, c_int), int(shape_1D, c_int64_t), torch_wp, input_device, int(stride_1D, c_int))
+          in_tensors(2) = torch_tensor_from_blob(c_loc(psfc), int(dims_1D, c_int), int(shape_1D, c_int64_t), torch_wp, input_device, int(stride_1D, c_int))
         end if
 
         ! Zonal
         if (explicit_reshape) then
-          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu_flattened), dims_2D, shape_2D, torch_wp, input_device, stride_2D)
-          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+          in_tensors(1) = torch_tensor_from_array(uuu_flattened, stride_2D, input_device)
+          gwfcng_x_tensor = torch_tensor_from_array(gwfcng_x_flattened, stride_out, torch_kCPU)
         else
-          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu), dims_2D, shape_2D, torch_wp, input_device, stride_2D)
-          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+          in_tensors(1) = torch_tensor_from_blob(c_loc(uuu), int(dims_2D, c_int), int(shape_2D, c_int64_t), torch_wp, input_device, int(stride_2D, c_int))
+          gwfcng_x_tensor = torch_tensor_from_blob(c_loc(gwfcng_x), int(dims_out, c_int), int(shape_out, c_int64_t), torch_wp, torch_kCPU, int(stride_out, c_int))
         end if
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
@@ -148,11 +148,11 @@ program benchmark_cgdrag_test
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
         if (explicit_reshape) then
-          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv_flattened), dims_2D, shape_2D, torch_wp, input_device, stride_2D)
-          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y_flattened), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+          in_tensors(1) = torch_tensor_from_array(vvv_flattened, stride_2D, input_device)
+          gwfcng_y_tensor = torch_tensor_from_array(gwfcng_y_flattened, stride_out, torch_kCPU)
         else
-          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, torch_wp, input_device, stride_2D)
-          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, torch_wp, torch_kCPU, stride_out)
+          in_tensors(1) = torch_tensor_from_blob(c_loc(vvv), int(dims_2D, c_int), int(shape_2D, c_int64_t), torch_wp, input_device, int(stride_2D, c_int))
+          gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), int(dims_out, c_int), int(shape_out, c_int64_t), torch_wp, torch_kCPU, int(stride_out, c_int))
         end if
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = tensor_creation_durations(i) + (end_time - start_time)
