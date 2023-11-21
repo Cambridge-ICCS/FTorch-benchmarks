@@ -70,7 +70,8 @@ def compute_reshape_drag(*args):
     num_col :
         # of latitudes on this proc
     device : str
-        Device to move input_batch to. "cpu" (default) or "cuda".
+        Device type ("cpu", "cuda" or "mps"), and optional device ordinal for
+        the device type, to move input_batch to. Must match device of model.
 
     Returns
     -------
