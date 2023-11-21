@@ -95,8 +95,8 @@ program benchmark_stride_test
         ! Create input and output tensors for the model.
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
-        input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, torch_wp, input_device, stride_2d)
-        result_tensor = torch_tensor_from_blob(c_loc(big_result), 2, shape_2d, torch_wp, torch_kCPU, stride_2d)
+        input_array(1) = torch_tensor_from_blob(c_loc(big_array), 2, shape_2d, stride_2d, torch_wp, input_device)
+        result_tensor = torch_tensor_from_blob(c_loc(big_result), 2, shape_2d, stride_2d, torch_wp, torch_kCPU)
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
         ! ------------------------------ End tensor creation timer ------------------------------
