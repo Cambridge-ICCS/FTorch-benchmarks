@@ -1,4 +1,5 @@
 """Helper functions to read and plot benchmarking data."""
+from typing import Union
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -286,7 +287,20 @@ def convert_to_seconds(time_str: str):
         raise ValueError("Time format not supported. Expected format: h:mm:ss or m:ss")
 
 
-def plot_walltimes(benchmarks: dict, labels: list):
+def plot_walltimes(
+    benchmarks: dict,
+    labels: list,
+    title: Union[str, None] = None,
+    ylabel: Union[str, None] = None,
+    xlabel: Union[str, None] = None,
+    alpha: float = 0.9,
+    bar_width: float = 1.0,
+    yscale: str = "linear",
+    ylim: Union[float, tuple] = 0.0,
+    legend_labels: dict = {},
+    xticklabels: list = [],
+    save_path: Union[str, None] = None,
+):
     """Plot bar charts comparing walltimes for all labels given.
 
     Parameters
@@ -295,23 +309,103 @@ def plot_walltimes(benchmarks: dict, labels: list):
             Dictionary of times, with keys corresponding to each input label.
         labels : list
             List containing subset of benchmark keys to plot.
+        title : Union[str, None]
+            Title for plot.
+        ylabel : Union[str, None]
+            Y-axis label for plot.
+        xlabel : Union[str, None]
+            X-axis label for plot.
+        alpha : float
+            Opaqu
+        bar_width : float
+            Width(s) of bars.
+        yscale : str
+            Y-axis scale type.
+        ylim : Union[float, tuple]
+            Y-axis value range.
+        legend_labels : dict
+            Dictionary of legend labels for each benchmark. Each key should
+            be present in an item in `labels`, while values specify the legend.
+            labels plotted.
+        xticklabels : list
+            List of x-axis tick labels.
+        save_path : Union[str, None]
+            File path to save plot.
     """
-    alpha = 0.9
-    bar_width = 1
+    # If legend_labels unspecified, create bar for every label
+    num_legend_labels = len(legend_labels)
+    if num_legend_labels == 0:
+        num_x_groups = len(labels)
+    # If legend_labels is specified, check legend labels match benchmark labels
+    # or repeat tje list to match the correct length.
+    elif len(labels) % num_legend_labels != 0:
+        raise ValueError(
+            "The number labels specified in `legend_labels` equal or be a factor"
+            " of the number of labels specified in `labels`"
+        )
+    # Calculate number of groups of bars, each with own xtick
+    else:
+        num_x_groups = len(labels) // num_legend_labels
 
-    for i, label in enumerate(labels):
+    # Set up list at each xtick value for each legend key
+    group_data = {}  # type: dict
+    for key in legend_labels:
+        group_data[key] = []
+
+    # Central xtick coordinates
+    x = np.arange(num_x_groups)
+
+    # Use legend_labels dictionary to extract data for each legend entry
+    if num_legend_labels > 0:
+        for i, label in enumerate(labels):
+            for key in legend_labels:
+                if key in label:
+                    group_data[key].append(benchmarks[label])
+
+        # Plot data for each legend entry
+        for i, key in enumerate(legend_labels):
+            # Bars equal on each side of xtick
+            if num_legend_labels % 2 == 0:
+                xticks = np.linspace(
+                    -bar_width / num_legend_labels,
+                    bar_width / num_legend_labels,
+                    num_legend_labels,
+                )
+            # Middle bar centred on xtick
+            else:
+                xticks = np.linspace(-bar_width, bar_width, num_legend_labels)
+            plt.bar(
+                x + xticks[i],
+                group_data[key],
+                alpha=alpha,
+                width=bar_width,
+                label=legend_labels[key],
+            )
+    else:
+        # Plot bar for each label
+        data = []
+        for label in labels:
+            data.append(benchmarks[label])
         plt.bar(
-            np.arange(len(labels))[i],
-            benchmarks[label],
+            x,
+            data,
             alpha=alpha,
             width=bar_width,
         )
-    # plt.yscale("log")
-    plt.ylim(0)
-    plt.xticks(
-        ticks=np.arange(len(labels)),
-        labels=labels,
-        fontsize=5,
-    )
-    plt.ylabel("Time / s")
+
+    plt.xticks(ticks=x, labels=xticklabels)
+    plt.yscale(yscale)
+    plt.ylim(ylim)
+    if ylabel is not None:
+        plt.ylabel(ylabel)
+    else:
+        plt.ylabel("Time / s")
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if title is not None:
+        plt.title(title)
+    if legend_labels is not None:
+        plt.legend()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=300)
     plt.show()
