@@ -144,6 +144,9 @@ program benchmark_cgdrag_test
         inference_durations(i) = end_time - start_time
         ! ------------------------------ End inference timer ------------------------------
 
+        ! Clean up here before this points to a new tensor.
+        call torch_tensor_delete(in_tensors(1))
+
         ! Meridional
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
