@@ -94,7 +94,7 @@ program benchmark_cgdrag_test
                             lat_reshaped, psfc_reshaped, gwfcng_x_flattened, gwfcng_y_flattened)
       end if
 
-      ! Load model (creation/deletion timed at end)
+      ! Load model
       model = torch_module_load(model_dir//"/"//model_name)
 
       do i = 1, ntimes
@@ -227,6 +227,9 @@ program benchmark_cgdrag_test
         print *, trim(msg6)
 
       end do
+
+      ! Delete model
+      call torch_module_delete(model)
 
       ! Call individual print for loop, to avoid adding to combined mean
       call print_time_stats(loop_durations, "full loop")

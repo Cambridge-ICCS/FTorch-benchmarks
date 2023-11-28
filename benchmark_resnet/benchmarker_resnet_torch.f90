@@ -94,7 +94,7 @@ program benchmark_resnet_test
         return
       end if
 
-      ! Load model (creation/deletion timed at end)
+      ! Load model
       model = torch_module_load(model_dir//"/"//model_name)
 
       ! Initialise data - previously in loop, but not modified?
@@ -155,7 +155,7 @@ program benchmark_resnet_test
 
       end do
 
-      ! Delete model (creation/deletion timed at end)
+      ! Delete model
       call torch_module_delete(model)
 
       ! Call individual print for loop, to avoid adding to combined mean
