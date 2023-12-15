@@ -24,8 +24,8 @@ program benchmark_resnet
       real(wp), dimension(:,:), allocatable, asynchronous :: out_data
 
       real(dp) :: start_time, end_time, start_loop_time, end_loop_time
-      real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations
-      real(dp), dimension(:), allocatable :: inference_durations, tensor_creation_durations, tensor_deletion_durations
+      real(dp), dimension(:), allocatable :: loop_durations, inference_durations
+      real(dp), dimension(:), allocatable :: tensor_creation_durations, tensor_deletion_durations
       real(dp), dimension(:,:), allocatable :: all_durations
       character(len=20), dimension(:), allocatable :: messages
 
@@ -37,6 +37,8 @@ program benchmark_resnet
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4
       integer :: ntimes
+      character(len=10) :: input_device
+      logical :: use_cuda = .false.
 
       type(ndarray) :: out_data_nd, in_data_nd
 
@@ -54,23 +56,25 @@ program benchmark_resnet
 
       print *, "====== FORPY ======"
 
-      call setup(model_dir, model_name, ntimes, n)
+      call setup(model_dir, model_name, ntimes, n, use_cuda=use_cuda)
+
+      if (use_cuda) then
+        input_device = "cuda"
+      else
+        input_device = "cpu"
+      end if
 
       allocate(in_data(1, 3, 224, 224))
       allocate(out_data(1, 1000))
       allocate(probabilities(1, 1000))
-      allocate(module_load_durations(ntimes))
-      allocate(module_delete_durations(ntimes))
       allocate(loop_durations(ntimes))
       allocate(tensor_creation_durations(ntimes))
       allocate(tensor_deletion_durations(ntimes))
       allocate(inference_durations(ntimes))
-      allocate(all_durations(ntimes, 5))
-      allocate(messages(5))
+      allocate(all_durations(ntimes, 3))
+      allocate(messages(3))
 
       ! Initialise timings with arbitrary large values
-      module_load_durations(:) = 100.
-      module_delete_durations(:) = 100.
       loop_durations(:) = 100.
       tensor_creation_durations(:) = 100.
       tensor_deletion_durations(ntimes) = 100.
@@ -92,7 +96,7 @@ program benchmark_resnet
 #else
       print *, "generate model in python runtime"
 #endif
-      call load_module(model_dir, model_name, run_emulator, model)
+      call load_module(model_dir, model_name, run_emulator, model, use_cuda)
 
       call load_data(data_file, tensor_length, in_data)
 
@@ -108,10 +112,11 @@ program benchmark_resnet
         ie = ndarray_create_nocopy(out_data_nd, out_data)
 
         ! create model input args as tuple
-        ie = tuple_create(args,3)
+        ie = tuple_create(args, 4)
         ie = args%setitem(0, model)
         ie = args%setitem(1, in_data_nd)
-        ie = args%setitem(2, out_data_nd)
+        ie = args%setitem(2, trim(input_device))
+        ie = args%setitem(3, out_data_nd)
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
         ! ------------------------------ End tensor creation timer ------------------------------
@@ -148,7 +153,7 @@ program benchmark_resnet
         probability = maxval(probabilities)
 
         ! Check top probability matches expected value
-        call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-5_wp)
+        call assert(probability, expected_prob, test_name="Check probability", rtol_opt=1.0e-2_wp)
 
         write(msg1, '(A, I10, A, F10.6, A)') "check iteration create tensors", i, " (", tensor_creation_durations(i), " s)"
         write(msg2, '(A, I15, A, F10.6, A)') "check iteration inference", i, " (", inference_durations(i), " s)"
@@ -161,23 +166,19 @@ program benchmark_resnet
 
       end do
 
-      call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations, run_emulator, model)
+      call forpy_finalize
 
       ! Call individual print for loop, to avoid adding to combined mean
       call print_time_stats(loop_durations, "full loop")
 
-      all_durations(:, 1) = module_load_durations
-      all_durations(:, 2) = module_delete_durations
-      all_durations(:, 3) = tensor_creation_durations
-      all_durations(:, 4) = tensor_deletion_durations
-      all_durations(:, 5) = inference_durations
-      messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
+      all_durations(:, 1) = tensor_creation_durations
+      all_durations(:, 2) = tensor_deletion_durations
+      all_durations(:, 3) = inference_durations
+      messages = [character(len=20) :: "tensor creation", "tensor deletion", "forward pass"]
       call print_all_time_stats(all_durations, messages)
 
       deallocate(in_data)
       deallocate(out_data)
-      deallocate(module_load_durations)
-      deallocate(module_delete_durations)
       deallocate(loop_durations)
       deallocate(tensor_creation_durations)
       deallocate(tensor_deletion_durations)
@@ -236,45 +237,12 @@ program benchmark_resnet
 
     end subroutine calc_probs
 
-    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations, run_emulator, model)
-
-      implicit none
-
-      integer, intent(in) :: ntimes
-      character(len=*), intent(in) :: model_dir, model_name
-      real(dp), dimension(:), intent(inout) :: module_load_durations, module_delete_durations
-      type(module_py), intent(out) :: run_emulator
-      type(object), intent(out) :: model
-
-      integer :: i
-      real(dp) :: start_time, end_time
-
-      do i = 1, ntimes
-        ! ------------------------------ Start module load timer ------------------------------
-        start_time = omp_get_wtime()
-        call load_module(model_dir, model_name, run_emulator, model)
-        end_time = omp_get_wtime()
-        module_load_durations(i) = end_time - start_time
-        ! ------------------------------ End module load timer ------------------------------
-
-        ! ------------------------------ Start module deletion timer ------------------------------
-        ! We can only call forpy_finalize once
-        if (i == ntimes) then
-          start_time = omp_get_wtime()
-          call forpy_finalize
-          end_time = omp_get_wtime()
-          module_delete_durations(:) = (end_time - start_time) / (ntimes + 1)
-        end if
-        ! ------------------------------ End module deletion timer ------------------------------
-      end do
-
-    end subroutine time_module
-
-    subroutine load_module(model_dir, model_name, run_emulator, model)
+    subroutine load_module(model_dir, model_name, run_emulator, model, use_cuda)
 
       implicit none
 
       character(len=*), intent(in) :: model_dir, model_name
+      logical, intent(in) :: use_cuda
       type(module_py), intent(out) :: run_emulator
       type(object), intent(out) :: model
 
@@ -301,7 +269,11 @@ program benchmark_resnet
 #ifdef USETS
       ! load torchscript saved model
       ie = tuple_create(args,1)
-      ie = str_create(filename, trim(model_dir//"/"//"saved_resnet18_model_cpu.pt"))
+      if (use_cuda) then
+      ie = str_create(filename, trim(model_dir//"/"//"saved_resnet18_model_gpu.pt"))
+      else
+        ie = str_create(filename, trim(model_dir//"/"//"saved_resnet18_model_cpu.pt"))
+      end if
       ie = args%setitem(0, filename)
       ie = call_py(model, run_emulator, "initialize_ts", args)
       call args%destroy

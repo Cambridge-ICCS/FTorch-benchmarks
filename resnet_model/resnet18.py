@@ -144,15 +144,19 @@ def compute(*args):
         ResNet model ready to be deployed.
     input_batch : torch.Tensor
         Input batch to operate on
+    device : str
+        Device type ("cpu", "cuda" or "mps"), and optional device ordinal for
+        the device type, to move input_batch to. Must match device of model.
 
     Returns
     -------
     output :
         Results from ResNet model
     """
-    model, input_batch, result = args
+    model, input_batch, device, result = args
+    device = torch.device(device)
 
-    input_batch = torch.from_numpy(input_batch)
+    input_batch = torch.from_numpy(input_batch).to(device)
 
     # Apply model.
     with torch.no_grad():
@@ -160,7 +164,7 @@ def compute(*args):
         assert model.training is False
         output = model(input_batch)
 
-    result[:, :] = output
+    result[:, :] = output.cpu()
     return result
 
 

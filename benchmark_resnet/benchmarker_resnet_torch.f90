@@ -1,17 +1,14 @@
 program benchmark_resnet_test
 
-  use, intrinsic :: iso_c_binding, only: c_int64_t, c_loc
   use :: omp_lib, only : omp_get_wtime
   use :: utils, only : assert, setup, print_time_stats, print_all_time_stats
   ! Import our library for interfacing with PyTorch
   use :: ftorch
   ! Define working precision for C primitives and Fortran reals
   ! Precision must match `wp` in resnet18.py and `wp_torch` in pt2ts.py
-  use :: precision, only: c_wp, wp, dp
+  use :: precision, only: wp, dp
 
   implicit none
-
-  integer, parameter :: torch_wp = torch_kFloat32
 
   call main()
 
@@ -23,21 +20,21 @@ program benchmark_resnet_test
 
       integer :: i, ii, n
       real(dp) :: start_time, end_time, start_loop_time, end_loop_time
-      real(dp), dimension(:), allocatable :: module_load_durations, module_delete_durations, loop_durations
-      real(dp), dimension(:), allocatable :: inference_durations, tensor_creation_durations, tensor_deletion_durations
+      real(dp), dimension(:), allocatable :: loop_durations, inference_durations
+      real(dp), dimension(:), allocatable :: tensor_creation_durations, tensor_deletion_durations
       real(dp), dimension(:,:), allocatable :: all_durations
       character(len=20), dimension(:), allocatable :: messages
 
-      real(c_wp), dimension(:,:,:,:), allocatable, target :: in_data
-      integer(c_int), parameter :: n_inputs = 1
-      real(c_wp), dimension(:,:), allocatable, target :: out_data
+      real(wp), dimension(:,:,:,:), allocatable, target :: in_data
+      real(wp), dimension(:,:), allocatable, target :: out_data
+      integer, parameter :: n_inputs = 1
 
-      integer(c_int), parameter :: in_dims = 4
-      integer(c_int64_t) :: in_shape(in_dims) = [1, 3, 224, 224]
-      integer(c_int) :: in_layout(in_dims) = [1,2,3,4]
-      integer(c_int), parameter :: out_dims = 2
-      integer(c_int64_t) :: out_shape(out_dims) = [1, 1000]
-      integer(c_int) :: out_layout(out_dims) = [1,2]
+      integer, parameter :: in_dims = 4
+      integer :: in_shape(in_dims) = [1, 3, 224, 224]
+      integer :: in_layout(in_dims) = [1, 2, 3, 4]
+      integer, parameter :: out_dims = 2
+      integer :: out_shape(out_dims) = [1, 1000]
+      integer :: out_layout(out_dims) = [1, 2]
 
       character(len=:), allocatable :: model_dir, model_name
       character(len=128) :: msg1, msg2, msg3, msg4
@@ -74,18 +71,14 @@ program benchmark_resnet_test
       allocate(out_data(out_shape(1), out_shape(2)))
       allocate(probabilities(out_shape(1), out_shape(2)))
 
-      allocate(module_load_durations(ntimes))
-      allocate(module_delete_durations(ntimes))
       allocate(loop_durations(ntimes))
       allocate(tensor_creation_durations(ntimes))
       allocate(tensor_deletion_durations(ntimes))
       allocate(inference_durations(ntimes))
-      allocate(all_durations(ntimes, 5))
-      allocate(messages(5))
+      allocate(all_durations(ntimes, 3))
+      allocate(messages(3))
 
       ! Initialise timings with arbitrary large values
-      module_load_durations(:) = 100.
-      module_delete_durations(:) = 100.
       loop_durations(:) = 100.
       tensor_creation_durations(:) = 100.
       tensor_deletion_durations(ntimes) = 100.
@@ -101,7 +94,7 @@ program benchmark_resnet_test
         return
       end if
 
-      ! Load model (creation/deletion timed at end)
+      ! Load model
       model = torch_module_load(model_dir//"/"//model_name)
 
       ! Initialise data - previously in loop, but not modified?
@@ -115,8 +108,8 @@ program benchmark_resnet_test
         ! Create input and output tensors for the model.
         ! ------------------------------ Start tensor creation timer ------------------------------
         start_time = omp_get_wtime()
-        in_tensor(1) = torch_tensor_from_blob(c_loc(in_data), in_dims, in_shape, torch_wp, input_device, in_layout)
-        out_tensor = torch_tensor_from_blob(c_loc(out_data), out_dims, out_shape, torch_wp, torch_kCPU, out_layout)
+        in_tensor(1) = torch_tensor_from_array(in_data, in_layout, input_device)
+        out_tensor = torch_tensor_from_array(out_data, out_layout, torch_kCPU)
         end_time = omp_get_wtime()
         tensor_creation_durations(i) = end_time - start_time
         ! ------------------------------ End tensor creation timer ------------------------------
@@ -162,26 +155,20 @@ program benchmark_resnet_test
 
       end do
 
-      ! Delete model (creation/deletion timed at end)
+      ! Delete model
       call torch_module_delete(model)
-
-      call time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
 
       ! Call individual print for loop, to avoid adding to combined mean
       call print_time_stats(loop_durations, "full loop")
 
-      all_durations(:, 1) = module_load_durations
-      all_durations(:, 2) = module_delete_durations
-      all_durations(:, 3) = tensor_creation_durations
-      all_durations(:, 4) = tensor_deletion_durations
-      all_durations(:, 5) = inference_durations
-      messages = [character(len=20) :: "module creation", "module deletion", "tensor creation", "tensor deletion", "forward pass"]
+      all_durations(:, 1) = tensor_creation_durations
+      all_durations(:, 2) = tensor_deletion_durations
+      all_durations(:, 3) = inference_durations
+      messages = [character(len=20) :: "tensor creation", "tensor deletion", "forward pass"]
       call print_all_time_stats(all_durations, messages)
 
       deallocate(in_data)
       deallocate(out_data)
-      deallocate(module_load_durations)
-      deallocate(module_delete_durations)
       deallocate(loop_durations)
       deallocate(tensor_creation_durations)
       deallocate(tensor_deletion_durations)
@@ -198,9 +185,9 @@ program benchmark_resnet_test
 
       character(len=*), intent(in) :: filename
       integer, intent(in) :: tensor_length
-      real(c_wp), dimension(:,:,:,:), intent(out) :: in_data
+      real(wp), dimension(:,:,:,:), intent(out) :: in_data
 
-      real(c_wp) :: flat_data(tensor_length)
+      real(wp) :: flat_data(tensor_length)
       integer :: ios
       character(len=100) :: ioerrmsg
 
@@ -229,7 +216,7 @@ program benchmark_resnet_test
 
       implicit none
 
-      real(c_wp), dimension(:,:), intent(in) :: out_data
+      real(wp), dimension(:,:), intent(in) :: out_data
       real(wp), dimension(:,:), intent(out) :: probabilities
       real(wp) :: prob_sum
 
@@ -239,34 +226,5 @@ program benchmark_resnet_test
       probabilities = probabilities / prob_sum
 
     end subroutine calc_probs
-
-    subroutine time_module(ntimes, model_dir, model_name, module_load_durations, module_delete_durations)
-
-      implicit none
-
-      integer, intent(in) :: ntimes
-      real(dp), dimension(:), intent(out) :: module_load_durations, module_delete_durations
-      integer :: i
-      real(dp) :: start_time, end_time
-      character(len=*), intent(in) :: model_dir, model_name
-      type(torch_module) :: model
-
-      do i = 1, ntimes
-        ! ------------------------------ Start module load timer ------------------------------
-        start_time = omp_get_wtime()
-        model = torch_module_load(model_dir//"/"//model_name)
-        end_time = omp_get_wtime()
-        module_load_durations(i) = end_time - start_time
-        ! ------------------------------ End module load timer ------------------------------
-
-        ! ------------------------------ Start module deletion timer ------------------------------
-        start_time = omp_get_wtime()
-        call torch_module_delete(model)
-        end_time = omp_get_wtime()
-        module_delete_durations(i) = end_time - start_time
-        ! ------------------------------ End module deletion timer ------------------------------
-      end do
-
-    end subroutine time_module
 
 end program benchmark_resnet_test
