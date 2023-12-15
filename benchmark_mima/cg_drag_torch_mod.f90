@@ -178,6 +178,9 @@ subroutine cg_drag_ML(uuu, vvv, psfc, lat, gwfcng_x, gwfcng_y)
   ! Run model and Infer
   call torch_module_forward(model, model_input_arr, n_inputs, gwfcng_x_tensor)
 
+  ! Clean up here before this points to a new tensor
+  call torch_tensor_delete(model_input_arr(1))
+
   ! Meridional
   model_input_arr(1) = torch_tensor_from_blob(c_loc(vvv), dims_2D, shape_2D, stride_2D, torch_wp, torch_kCPU)
   gwfcng_y_tensor = torch_tensor_from_blob(c_loc(gwfcng_y), dims_out, shape_out, stride_out, torch_wp, torch_kCPU)
