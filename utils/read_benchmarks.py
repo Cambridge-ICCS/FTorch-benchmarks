@@ -255,7 +255,6 @@ def read_slurm_walltime(filepath: str, labels: list) -> dict:
                 # Cut from 'Command being timed: "./benchmarker_cgdrag_forpy...'
                 # to 'cgdrag_forpy'
                 current_label = line.split()[3][15:]
-                # print(current_label)
             if "Elapsed (wall clock) time" in line:
                 if current_label in labels[i]:
                     benchmarks[labels[i]] = convert_to_seconds(line.split()[7])
@@ -290,6 +289,7 @@ def convert_to_seconds(time_str: str):
 def plot_walltimes(
     benchmarks: dict,
     labels: list,
+    normalise: bool = False,
     title: Union[str, None] = None,
     ylabel: Union[str, None] = None,
     xlabel: Union[str, None] = None,
@@ -309,6 +309,8 @@ def plot_walltimes(
             Dictionary of times, with keys corresponding to each input label.
         labels : list
             List containing subset of benchmark keys to plot.
+        normalise : bool
+            Whether to normalise data, so the maximum value is 1.
         title : Union[str, None]
             Title for plot.
         ylabel : Union[str, None]
@@ -332,6 +334,9 @@ def plot_walltimes(
         save_path : Union[str, None]
             File path to save plot.
     """
+    if len(benchmarks) == 0:
+        raise ValueError("No data passed in `benchmarks`.")
+
     # If legend_labels unspecified, create bar for every label
     num_legend_labels = len(legend_labels)
     if num_legend_labels == 0:
@@ -355,12 +360,22 @@ def plot_walltimes(
     # Central xtick coordinates
     x = np.arange(num_x_groups)
 
+    # Normalise data if requested
+    benchmarks_copy = benchmarks.copy()
+    if normalise:
+        max_time = 0.
+        for benchmark, value in benchmarks_copy.items():
+            if benchmark in labels and value > max_time:
+                max_time = value
+        for benchmark, value in benchmarks_copy.items():
+            benchmarks_copy[benchmark] = value / max_time
+
     # Use legend_labels dictionary to extract data for each legend entry
     if num_legend_labels > 0:
         for i, label in enumerate(labels):
             for key in legend_labels:
                 if key in label:
-                    group_data[key].append(benchmarks[label])
+                    group_data[key].append(benchmarks_copy[label])
 
         # Plot data for each legend entry
         for i, key in enumerate(legend_labels):
@@ -385,7 +400,7 @@ def plot_walltimes(
         # Plot bar for each label
         data = []
         for label in labels:
-            data.append(benchmarks[label])
+            data.append(benchmarks_copy[label])
         plt.bar(
             x,
             data,
