@@ -298,7 +298,7 @@ def plot_walltimes(
     yscale: str = "linear",
     ylim: Union[float, tuple] = 0.0,
     legend_labels: dict = {},
-    xticklabels: list = [],
+    xticklabels: Union[list, None] = None,
     save_path: Union[str, None] = None,
 ):
     """Plot bar charts comparing walltimes for all labels given.
@@ -327,9 +327,9 @@ def plot_walltimes(
             Y-axis value range.
         legend_labels : dict
             Dictionary of legend labels for each benchmark. Each key should
-            be present in an item in `labels`, while values specify the legend.
+            be present in an item in `labels`, while values specify the legend
             labels plotted.
-        xticklabels : list
+        xticklabels : Union[list, None]
             List of x-axis tick labels.
         save_path : Union[str, None]
             File path to save plot.
@@ -363,7 +363,7 @@ def plot_walltimes(
     # Normalise data if requested
     benchmarks_copy = benchmarks.copy()
     if normalise:
-        max_time = 0.
+        max_time = 0.0
         for benchmark, value in benchmarks_copy.items():
             if benchmark in labels and value > max_time:
                 max_time = value
