@@ -1,6 +1,10 @@
 import os
+
 from smartredis import Client
 from smartsim import Experiment
+import torch
+
+import simplenet
 
 os.environ["SMARTSIM_DB_FILE_PARSE_INTERVAL"] = "5"
 language = "fortran"
@@ -30,11 +34,12 @@ exp.start(model, block=True, summary=False)
 
 # Connect a SmartRedis client to retrieve data
 client = Client(address=db.get_address()[0], cluster=False)
-in_data = client.get_tensor("in_data")
-print(f"Input: {in_data}")
+trained_model_dummy_input = torch.from_numpy(client.get_tensor("in_data"))
+print(f"Input (Python): {trained_model_dummy_input}")
 
-# TODO: Actually use PyTorch
-out_data = 2 * in_data
+# Use PyTorch to run the forward method on the SimpleNet model
+trained_model = simplenet.SimpleNet()
+trained_model_dummy_output = trained_model(trained_model_dummy_input)
 
-print(f"Output: {out_data}")
-client.put_tensor("out_data", out_data)
+print(f"Output (Python): {trained_model_dummy_output}")
+client.put_tensor("out_data", trained_model_dummy_output.detach().numpy())

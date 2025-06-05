@@ -19,15 +19,18 @@ program simplenet_fortran
 
    ! Initialise data
    in_data = [0.0_wp, 1.0_wp, 2.0_wp, 3.0_wp, 4.0_wp]
+   write(*,*) "Input (Fortran):", in_data
 
    ierr = client%initialize(.false.)
    ! if (ierr /= SRNoError) error stop  ! TODO: import SRNoError
    ierr = client%put_tensor("in_data", in_data, shape(in_data))
    ! if (ierr /= SRNoError) error stop  ! TODO: import SRNoError
 
+   ! call sleep(10)
+
    ierr = client%unpack_tensor("out_data", out_data, shape(out_data))
    ! if (ierr /= SRNoError) error stop  ! TODO: import SRNoError
 
-   print *, "Output:", out_data
+   write(*,*) "Output (Fortran):", out_data
 
 end program simplenet_fortran

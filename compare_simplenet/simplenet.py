@@ -1,0 +1,1 @@
+/home/joe/projects/ftorch/benchmarks/compare_simplenet/../simplenet_model/simplenet.py
