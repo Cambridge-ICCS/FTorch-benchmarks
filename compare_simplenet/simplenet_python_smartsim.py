@@ -7,24 +7,17 @@ import torch
 import simplenet
 
 os.environ["SMARTSIM_DB_FILE_PARSE_INTERVAL"] = "5"
-language = "fortran"
-exe = "build/simplenet_fortran_smartsim"
-launcher = "local"
-interface = "lo"
 
-exp = Experiment("smartsim_experiment", launcher=launcher)
-db = exp.create_database(port=6780, interface=interface)
-
+exp = Experiment("smartsim_experiment", launcher="local")
+db = exp.create_database(port=6780, interface="lo")
 exp.generate(db, overwrite=True)
-exp.start(db)
+exp.start(db, block=True, summary=True)
 print(f"Database started at address: {db.get_address()}")
 
-# set simulation parameters we can pass as executable arguments
-exe_args = []
 # create "run settings" for the simulation which define how
 # the simulation will be executed when passed to Experiment.start()
-settings = exp.create_run_settings(exe, exe_args=exe_args)
-settings.set_nodes(1)
+settings = exp.create_run_settings("build/simplenet_fortran_smartsim", exe_args=[])
+# settings.set_nodes(1)
 settings.set_tasks(1)
 
 model = exp.create_model("smartsim_model", run_settings=settings)
